@@ -7,7 +7,7 @@ import subprocess
 
 from typing import List
 
-from current_development.vf_computation_with_radiance.vf_computation_with_radiance.utils.utils_folder_manipulation import \
+from .utils_folder_manipulation import \
     check_parent_folder_exist, check_file_exist
 
 

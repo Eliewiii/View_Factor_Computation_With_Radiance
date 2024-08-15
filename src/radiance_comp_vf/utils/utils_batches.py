@@ -8,7 +8,6 @@ from typing import List
 def split_into_batches(input_table: List[list], batch_size: int) -> List[List[list]]:
     """
     Splits multiple lists of data into batches of a specified size.
-
     :param input_table: List of lists, data to be split into batches.
     :param batch_size: Int, size of each batch.
     :return: List of batches.

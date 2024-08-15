@@ -7,7 +7,7 @@ from copy import deepcopy
 
 from pyvista import PolyData
 
-from src.vf_computation_with_radiance import RadiativeSurface
+from src.radiance_comp_vf import RadiativeSurface
 
 # Sample Polydata for testing
 point_a = [1., 0., 0.]

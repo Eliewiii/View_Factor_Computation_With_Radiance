@@ -8,10 +8,10 @@ from time import time
 
 from concurrent.futures import ThreadPoolExecutor
 
-from src.vf_computation_with_radiance import RadiativeSurfaceManager
+from src.radiance_comp_vf import RadiativeSurfaceManager
 
 # from ...vf_computation_with_radiance import RadiativeSurfaceManager
-from src.vf_computation_with_radiance import create_folder
+from src.radiance_comp_vf import create_folder
 
 
 def generate_radiance_files_in_parallel(radiative_surface_manager_obj, rad_sim_folder,

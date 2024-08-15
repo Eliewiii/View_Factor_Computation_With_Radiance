@@ -6,10 +6,9 @@ import pytest
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
-from vf_computation_with_radiance import RadiativeSurfaceManager
-from src.vf_computation_with_radiance import create_folder
-from src.vf_computation_with_radiance import \
-    flatten_table_to_lists
+from src.radiance_comp_vf import RadiativeSurfaceManager
+from src.radiance_comp_vf.utils import create_folder
+from src.radiance_comp_vf.radiative_surface.radiative_surface_manager_class import flatten_table_to_lists
 
 from .radiative_surface_test import radiative_surface_instance
 

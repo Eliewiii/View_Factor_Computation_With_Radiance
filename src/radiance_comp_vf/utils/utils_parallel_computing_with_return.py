@@ -5,7 +5,7 @@ import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, List, Type
 
-from current_development.vf_computation_with_radiance.vf_computation_with_radiance.utils.utils_batches import \
+from .utils_batches import \
     split_into_batches
 
 

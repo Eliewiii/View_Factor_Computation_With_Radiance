@@ -5,7 +5,7 @@
 import os
 import pytest
 
-from current_development.vf_computation_with_radiance.vf_computation_with_radiance.utils import \
+from src.radiance_comp_vf.utils import \
     from_polydata_to_dot_rad_str, from_rad_str_to_rad_file, from_rad_str_list_to_rad_file
 
 from pyvista import PolyData
