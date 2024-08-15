@@ -22,14 +22,18 @@ class RadiativeSurfaceManager:
     """
 
     def __init__(self):
-        self.radiative_surface_dict: dict = {}
+        self._radiative_surface_dict: dict = {}
         self.context_octree = None
-        self.radiance_argument_list: List[List] = []
+        self._radiance_argument_list: List[List] = []
+
+    def __str__(self):
+        return (f"RadiativeSurfaceManager with {len(self._radiative_surface_dict)} RadiativeSurface objects."
+                f"list of RadiativeSurface objects: {list(self._radiative_surface_dict.keys())}")
 
     @classmethod
     def from_random_rectangles(cls, num_ref_rectangles: int = 1, num_random_rectangle: int = 10,
-                               min_size: float = 0.001, max_size: float = 100,
-                               max_distance_factor: float = 100, \
+                               min_size: float = 0.01, max_size: float = 10,
+                               max_distance_factor: float = 10, \
                                parallel_coaxial_squares: bool = False) -> "RadiativeSurfaceManager":
         """
         Make a RadiativeSurfaceManager object from random rectangles PolyData.
@@ -73,8 +77,8 @@ class RadiativeSurfaceManager:
 
     @classmethod
     def from_random_rectangles_that_see_each_others(cls, num_rectangles: int = 2,
-                                                    min_size: float = 0.001, max_size: float = 100,
-                                                    max_distance_factor: float = 100, \
+                                                    min_size: float = 0.01, max_size: float = 10,
+                                                    max_distance_factor: float = 10, \
                                                     parallel_coaxial_squares: bool = False) -> "RadiativeSurfaceManager":
         """
         Make a RadiativeSurfaceManager object from random rectangles PolyData.
@@ -192,7 +196,7 @@ class RadiativeSurfaceManager:
     def add_radiative_surfaces(self, *args, check_id_uniqueness=True):
         """
         Add multiple RadiativeSurface objects to the manager.
-        The arguments can be either RadiativeSurface or list of RadiativeSurface
+        The arguments can be either RadiativeSurface or list of RadiativeSurface.
         :param args: RadiativeSurface or [RadiativeSurface], the RadiativeSurface objects to add.
         :param check_id_uniqueness: bool, if True, check if the id of the RadiativeSurface object is unique.
         """
@@ -214,10 +218,10 @@ class RadiativeSurfaceManager:
         """
         if not isinstance(radiative_surface, RadiativeSurface):
             raise ValueError("The input object is not a RadiativeSurface object.")
-        if check_id_uniqueness and radiative_surface.identifier in self.radiative_surface_dict:
+        if check_id_uniqueness and radiative_surface.identifier in self._radiative_surface_dict:
             raise ValueError(
                 f"The RadiativeSurface id {radiative_surface.identifier} object already exists in the surface manager.")
-        self.radiative_surface_dict[radiative_surface.identifier] = radiative_surface
+        self._radiative_surface_dict[radiative_surface.identifier] = radiative_surface
 
     def get_radiative_surface(self, identifier: str) -> RadiativeSurface:
         """
@@ -225,10 +229,17 @@ class RadiativeSurfaceManager:
         :param identifier: str, the identifier of the RadiativeSurface object.
         :return: RadiativeSurface, the RadiativeSurface object.
         """
-        if identifier not in self.radiative_surface_dict:
+        if identifier not in self._radiative_surface_dict:
             raise ValueError(
                 f"The RadiativeSurface id {identifier} object does not exist in the surface manager.")
-        return self.radiative_surface_dict[identifier]
+        return self._radiative_surface_dict[identifier]
+
+    def get_list_of_radiative_surface_id(self) -> List[str]:
+        """
+        Get the list of the identifiers of the RadiativeSurface objects in the manager.
+        :return:
+        """
+        return list(self._radiative_surface_dict.keys())
 
     def make_context_octree(self):
         """
@@ -236,40 +247,28 @@ class RadiativeSurfaceManager:
         """
         # todo: implement this method
 
-    def add_argument_to_radiance_argument_list(self, argument_list: List[List[str]]):
+    def _add_argument_to_radiance_argument_list(self, argument_list: List[List[str]]):
         """
         Add an argument to the Radiance argument list.
         :param argument_list: the argument_list to add.
         """
         for argument in argument_list:
             if isinstance(argument, list) and not argument == []:
-                self.radiance_argument_list.append(argument)
+                self._radiance_argument_list.append(argument)
 
     def reinitialize_radiance_argument_list(self):
         """
         Reinitialize the Radiance argument list.
         """
-        self.radiance_argument_list = []
+        self._radiance_argument_list = []
 
     def check_all_viewed_surfaces_in_manager(self):
         """
         Check if all the viewed surfaces of the RadiativeSurface objects are in the manager.
         """
-        for radiative_surface_obj in self.radiative_surface_dict.values():
+        for radiative_surface_obj in self._radiative_surface_dict.values():
             for viewed_surface_id in radiative_surface_obj.get_viewed_surfaces_id_list():
-                if viewed_surface_id not in self.radiative_surface_dict:
-                    raise ValueError(
-                        f"The viewed surface {viewed_surface_id} of the surface {radiative_surface_obj.identifier} "
-                        f"is not in the radiative surface manager.")
-
-    def check_all_viewed_surfaces_in_manager_in_parallel(self):
-        """
-        Check if all the viewed surfaces of the RadiativeSurface objects are in the manager.
-        """
-
-        for radiative_surface_obj in self.radiative_surface_dict.values():
-            for viewed_surface_id in radiative_surface_obj.get_viewed_surfaces_id_list():
-                if viewed_surface_id not in self.radiative_surface_dict:
+                if viewed_surface_id not in self._radiative_surface_dict:
                     raise ValueError(
                         f"The viewed surface {viewed_surface_id} of the surface {radiative_surface_obj.identifier} "
                         f"is not in the radiative surface manager.")
@@ -284,19 +283,20 @@ class RadiativeSurfaceManager:
         :param num_receiver_per_file: int, the number of receivers in the receiver rad file per batch.
             From testing, it seems that the number of receivers per batch has a limit around 100, but it might be computer dependant.
         """
+        self.check_all_viewed_surfaces_in_manager()
         # Generate the folder if they don't exist
         create_folder(path_emitter_folder, path_receiver_folder, path_output_folder, overwrite=True)
         #
 
         argument_list_to_add = []
         # Generate the Radiance files for each surface
-        for radiative_surface_obj in self.radiative_surface_dict.values():
+        for radiative_surface_obj in self._radiative_surface_dict.values():
             argument_list_to_add.extend(
                 self.generate_radiance_inputs_for_one_surface(radiative_surface_obj, path_emitter_folder,
                                                               path_receiver_folder, path_output_folder,
                                                               num_receiver_per_file))
 
-        self.add_argument_to_radiance_argument_list(argument_list_to_add)
+        self._add_argument_to_radiance_argument_list(argument_list_to_add)
 
     def generate_radiance_inputs_for_all_surfaces_in_parallel(self, path_emitter_folder: str,
                                                               path_receiver_folder: str,
@@ -321,7 +321,7 @@ class RadiativeSurfaceManager:
         argument_list_to_add = parallel_computation_in_batches_with_return(
             func=self.generate_radiance_inputs_for_one_surface,
             input_tables=[[radiative_surface_obj] for radiative_surface_obj in
-                          self.radiative_surface_dict.values()],
+                          self._radiative_surface_dict.values()],
             executor_type=executor_type,
             worker_batch_size=worker_batch_size,
             num_workers=num_workers,
@@ -332,7 +332,7 @@ class RadiativeSurfaceManager:
 
         argument_list_to_add = flatten_table_to_lists(argument_list_to_add)
 
-        self.add_argument_to_radiance_argument_list(argument_list_to_add)
+        self._add_argument_to_radiance_argument_list(argument_list_to_add)
 
     def generate_radiance_inputs_for_one_surface(self, radiative_surface_obj: RadiativeSurface,
                                                  path_emitter_folder: str, path_receiver_folder: str,
@@ -384,7 +384,7 @@ class RadiativeSurfaceManager:
         :param worker_batch_size: int, the size of the batch of commands to run in parallel.
         :param executor_type: the type of executor to use for the parallelization.
         """
-        for input_arg in self.radiance_argument_list:
+        for input_arg in self._radiance_argument_list:
             compute_vf_between_emitter_and_receivers_radiance(*input_arg, nb_rays=nb_rays)
 
     def run_vf_computation_in_parallel(self, nb_rays: int = 10000, num_workers=1, worker_batch_size=1,
@@ -400,7 +400,7 @@ class RadiativeSurfaceManager:
 
         parallel_computation_in_batches_with_return(
             func=compute_vf_between_emitter_and_receivers_radiance,
-            input_tables=self.radiance_argument_list,
+            input_tables=self._radiance_argument_list,
             executor_type=executor_type,
             worker_batch_size=worker_batch_size,
             num_workers=num_workers,
@@ -420,7 +420,7 @@ class RadiativeSurfaceManager:
         :param executor_type: the type of executor to use for the parallelization.
         """
         # todo: add the octree to the arguments (and maybe generate it)
-        input_batches = split_into_batches(self.radiance_argument_list, batch_size=command_batch_size)
+        input_batches = split_into_batches(self._radiance_argument_list, batch_size=command_batch_size)
 
         parallel_computation_in_batches_with_return(
             func=run_radiant_vf_computation_in_batches,

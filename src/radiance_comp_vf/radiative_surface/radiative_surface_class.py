@@ -7,9 +7,7 @@ from copy import deepcopy
 from pyvista import PolyData
 from typing import List
 
-from ..utils import from_polydata_to_dot_rad_str
-
-from ..utils import generate_random_rectangles
+from ..utils import from_polydata_to_dot_rad_str, generate_random_rectangles
 
 
 class RadiativeSurface:
@@ -21,8 +19,8 @@ class RadiativeSurface:
         self.identifier: str = identifier
         self.hb_identifier: str = None
         self.polydata_geometry: PolyData = None
-        self.viewed_surfaces_id_list: List = []
-        self.viewed_surfaces_view_factor_list: List = []
+        self._viewed_surfaces_id_list: List = []
+        self._viewed_surfaces_view_factor_list: List = []
         # Radiative properties
         self.emissivity: float = None
         self.reflectivity: float = None
@@ -30,10 +28,10 @@ class RadiativeSurface:
         # Preprocessed data for Radiance
         self.rad_file_content: str = None
 
+    def __str__(self):
+        return f"RadiativeSurface(identifier='{self.identifier}')"
+
     def __deepcopy__(self, memo={}):
-        """
-        Make a deepcopy of the RadiativeSurface object.
-        """
         new_radiative_surface = RadiativeSurface(self.identifier)
         new_radiative_surface.hb_identifier = self.hb_identifier
         new_radiative_surface.polydata_geometry = deepcopy(self.polydata_geometry, memo)
@@ -110,14 +108,28 @@ class RadiativeSurface:
 
         return random_rad_surface_obj_list + [ref_rad_surface_obj]
 
+    @property
+    def identifier(self):
+        return self._identifier
+
+    @identifier.setter
+    def identifier(self, value):
+        if not isinstance(value, str):
+            raise ValueError("The identifier must be a string.")
+        if ' ' in value:
+            raise ValueError("Identifier cannot contain spaces.")
+        self._identifier = value
+
     def add_viewed_surfaces(self, viewed_surface_id_list: List[str]):
         """
         Add a viewed surface to the current surface.
         :param viewed_surface_id_list: str or [str], the identifier of the viewed surface.
         """
         for viewed_surface_id in viewed_surface_id_list:
-            if viewed_surface_id not in self.viewed_surfaces_id_list:
-                self.viewed_surfaces_id_list.append(viewed_surface_id)
+            if not isinstance(viewed_surface_id, str):
+                raise ValueError("The viewed surface identifier must be a string.")
+            if viewed_surface_id not in self._viewed_surfaces_id_list:
+                self._viewed_surfaces_id_list.append(viewed_surface_id)
             else:
                 raise ValueError(f"The surface {viewed_surface_id} is already in the viewed surfaces list.")
 
@@ -125,7 +137,7 @@ class RadiativeSurface:
         """
         Get the list of identifiers of the surfaces viewed by the current surface.
         """
-        return self.viewed_surfaces_id_list
+        return list(self._viewed_surfaces_id_list)
 
     def generate_rad_file_name(self) -> (str, str, str):
         """
