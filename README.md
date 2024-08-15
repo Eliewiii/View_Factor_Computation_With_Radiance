@@ -6,10 +6,6 @@ This package simplifies complex radiative computations for various engineering a
 The package is still under construction. Most of the key features are already implemented,
 but the consideration of obstructions for instance is not fully operational.
 
-The package requires predefine geometry in the Polydata format from the PyVista package. The view factors
-to compute need to be predifined by the user: an additional package to select automatically the view factors
-to compute will be implemented in the future.
-
 ## Features
 
 **Implemented**:
@@ -19,12 +15,23 @@ to compute will be implemented in the future.
 
 **To be implemented**:
 
+- Additional surface type support, for now only Polydata (Pyvista) is supported, soon to be added:
+  - Honeybee surfaces;
 - Obstruction consideration (generation of octree files) (considered automatically by Radiance if less than
   100, see the Radiance Comp VF documentation when it will be available);
-  -Automatic selection of the view factors to compute, for now the user has to define them manually
+- Automatic selection of the view factors to compute, for now the user has to define them manually
   (or with its custom algorithm). If less than 1000 surfaces, all surfaces can be considered as seeing each
-  other, the computation time will still remain acceptable (less than 30 minutes on recent hardware ≈ 1 million view
+  other, the computation time will still remain acceptable (less than 30 minutes on recent hardware ≈ 1
+  million view
   factor to compute).
+
+## Pre-requisites
+
+The software need to be installed on your computer. You can install it from the official website:
+https://www.radiance-online.org/download-install
+
+You also need to add the Radiance bin folder (C:\Radiance\bin) to your PATH environment variable, as well as
+creating the RAYPATH variable to the lib folder (C:\Radiance\lib).
 
 ## Installation
 
@@ -34,80 +41,15 @@ You can install the package directly from GitHub using `pip`:
 pip install git+https://github.com/Eliewiii/View_Factor_Computation_With_Radiance.git
 ```
 
-Or, if you have cloned the repository locally:
-
-```bash
-pip install .
-```
-
 ## Usage
 
-Here's a quick example to get you started:
+Examples of usage are available in the `examples` folder. For more detailed usage, check the documentation.
 
-```python
-
-from radiance_comp_vf import RadiativeSurfaceManager
-
-# Initialize the manager
-manager = RadiativeSurfaceManager()
-
-# Define surfaces and compute view factors
-surface1 = ...
-surface2 = ...
-view_factor = manager.compute_view_factor(surface1, surface2)
-
-print(f"View Factor: {view_factor}")
-```
-
-For more detailed usage, check the documentation.
-Dependencies
-
-This package requires the following Python packages:
-
-    numpy
-    pyvista
-    radiance
-
-You can install all dependencies using:
-
-bash
-
-pip install -r requirements.txt
-
-Development
-
-If you want to contribute to this project, follow these steps:
-
-    Clone the repository:
-
-    bash
-
-git clone https://github.com/Eliewiii/View_Factor_Computation_With_Radiance.git
-
-Install the package in development mode:
-
-bash
-
-pip install -e .[dev]
-
-Run the tests:
-
-bash
-
-    pytest
-
-License
-
+## License
 This project is licensed under the MIT License - see the LICENSE file for details.
-Contact
 
+## Contact
 For any questions, feel free to reach out:
 
 * Author: Elie MEIDONI
-* Email: elie.medioniwii@gmail.com
-
-Acknowledgments
-
-    Acknowledge any libraries, tutorials, or collaborators that helped you in developing this package.
-
-markdown
+* Email: elie.medioniwiii@gmail.com
