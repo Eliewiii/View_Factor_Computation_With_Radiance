@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from src.radiance_comp_vf import RadiativeSurfaceManager
 
 # from ...vf_computation_with_radiance import RadiativeSurfaceManager
-from src.radiance_comp_vf import create_folder
+from src.radiance_comp_vf.utils import create_folder
 
 
 def generate_radiance_files_in_parallel(radiative_surface_manager_obj, rad_sim_folder,
@@ -54,31 +54,6 @@ def init_radiative_surface_manager(num_ref_rectangles=1,
         parallel_coaxial_squares=False
     )
     return radiative_surface_manager_obj
-
-
-def init_radiative_surface_manager_in_parallel(num_ref_rectangles=1,
-                                               num_random_rectangle=1,
-                                               min_size=0.1, max_size=10,
-                                               max_distance_factor=10,
-                                               num_workers=4,
-                                               worker_batch_size=1,
-                                               executor_type=ThreadPoolExecutor):
-    """
-
-    """
-
-    radiative_surface_manager_obj = RadiativeSurfaceManager.from_random_rectangles_in_parallel(
-        num_ref_rectangles=num_ref_rectangles,
-        num_random_rectangle=num_random_rectangle,
-        min_size=min_size, max_size=max_size,
-        max_distance_factor=max_distance_factor,
-        parallel_coaxial_squares=False,
-        num_workers=num_workers,
-        worker_batch_size=worker_batch_size,
-        executor_type=executor_type
-    )
-    return radiative_surface_manager_obj
-
 
 def init_radiative_surface_manager_from_random_rectangles_that_see_each_others(num_rectangles=1,
                                                                                min_size=0.1, max_size=10,

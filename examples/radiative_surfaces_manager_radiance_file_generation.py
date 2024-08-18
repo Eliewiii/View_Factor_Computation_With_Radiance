@@ -4,7 +4,7 @@ Example file for the definition of radiative surfaces, RaditiveSurface objects u
 
 from pyvista import PolyData
 
-from src.radiance_comp_vf import RadiativeSurfaceManager
+from radiance_comp_vf import RadiativeSurfaceManager
 
 # Initialize the RadiativeSurfaceManager object with already random rectangles
 radiative_surface_manager_obj = RadiativeSurfaceManager.from_random_rectangles_that_see_each_others(

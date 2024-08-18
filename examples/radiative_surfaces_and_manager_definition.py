@@ -4,7 +4,7 @@ Example file for the definition of radiative surfaces, RaditiveSurface objects u
 
 from pyvista import PolyData
 
-from src.radiance_comp_vf import RadiativeSurface, RadiativeSurfaceManager
+from radiance_comp_vf import RadiativeSurface, RadiativeSurfaceManager
 
 # Sample Polydata for testing
 point_a_1 = [1., 0., 0.]

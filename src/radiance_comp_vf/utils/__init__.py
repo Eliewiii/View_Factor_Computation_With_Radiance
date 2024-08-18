@@ -8,3 +8,4 @@ from .utils_parallel_computing import *
 from .utils_parallel_computing_with_return import *
 from .utils_batches import *
 from .utils_random_rectangle_generation import generate_random_rectangles
+from .utils_objects_wrapper import *

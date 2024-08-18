@@ -93,28 +93,6 @@ class TestRadiativeSurfaceManagerRadianceInputGeneration:
         path_output_folder = os.path.join(radiance_test_files_dir, "output")
         return path_emitter_folder, path_receiver_folder, path_output_folder
 
-    def test_generate_radiance_files(self, radiative_surface_manager_instance_with_random_rectangles):
-        """
-        Test the generate_radiance_files method of the RadiativeSurfaceManager class.
-        """
-        path_emitter_folder, path_receiver_folder, path_output_folder = self.set_up_folders_for_radiance_files()
-        radiative_surface_manager = radiative_surface_manager_instance_with_random_rectangles
-        num_receiver_per_file = 5
-        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces(
-            path_emitter_folder=path_emitter_folder,
-            path_receiver_folder=path_receiver_folder,
-            path_output_folder=path_output_folder,
-            num_receiver_per_file=num_receiver_per_file
-        )
-        # Check the number of files
-        num_emitter = len(
-            [identifier for identifier, rad_surface_obj in
-             radiative_surface_manager.radiative_surface_dict.items() if
-             len(rad_surface_obj.get_viewed_surfaces_id_list()) > 0])
-        num_emitter_files = len(os.listdir(path_emitter_folder))
-        assert num_emitter == num_emitter_files
-        assert len(os.listdir(path_receiver_folder)) == len(radiative_surface_manager.radiance_argument_list)
-
     def test_generate_radiance_files_in_parallel(self,
                                                  radiative_surface_manager_instance_with_random_rectangles):
         """
