@@ -135,7 +135,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         """
         # Initialize the radiative surface manager and folders
         radiative_surface_manager = radiative_surface_manager_instance_with_random_rectangles
-        path_emitter_folder, path_receiver_folder, path_output_folder = TestRadiativeSurfaceManagerRadianceInputGeneration.set_up_folders_for_radiance_files()
+        path_emitter_folder,path_octree, path_receiver_folder, path_output_folder = TestRadiativeSurfaceManagerRadianceInputGeneration.set_up_folders_for_radiance_files()
         # File generation
         num_receiver_per_file = 5
         radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(

@@ -2,12 +2,13 @@
 Class of surfaces for radiative simulations
 """
 
-from copy import deepcopy
+import os
 
+from copy import deepcopy
 from pyvista import PolyData
 from typing import List
 
-from ..utils import from_polydata_to_dot_rad_str, generate_random_rectangles
+from ..utils import from_polydata_to_dot_rad_str, generate_random_rectangles, read_ruflumtx_output_file
 
 
 class RadiativeSurface:
@@ -139,14 +140,56 @@ class RadiativeSurface:
         """
         return list(self._viewed_surfaces_id_list)
 
-    def generate_rad_file_name(self) -> (str, str, str):
+    ##############################
+    # File Generation Methods
+    ##############################
+
+    def generate_rad_file_name(self) -> (str, str, str, str):
         """
         Generate the name of the Radiance file from the identifier without the extension and batch number.
         :return: str, the name of the emitter Radiance file.
+        :return: str, the name of the octree file.
         :return: str, the name of the receiver Radiance file.
         :return: str, the name of the output Radiance file.
         """
-        name_emitter_rad_file = f"emitter_{self.identifier}"
-        name_receiver_rad_file = f"receiver_{self.identifier}_batch_"
-        name_output_file = f"output_{self.identifier}_batch_"
-        return name_emitter_rad_file, name_receiver_rad_file, name_output_file
+        return self.name_emitter_file(), self.name_octree_file, self.name_receiver_file(), self.name_output_file()
+
+    def name_emitter_file(self) -> str:
+        """
+        Generate the name of the emitter Radiance file from the identifier without the extension.
+        """
+        return f"emitter_{self.identifier}"
+
+    def name_octree_file(self) -> str:
+        """
+        Generate the name of the octree file from the identifier without the extension.
+        """
+        return f"{self.identifier}.oct"
+
+    def name_receiver_file(self) -> str:
+        """
+        Generate the name of the receiver Radiance file from the identifier without the extension and batch number.
+        """
+        return f"receiver_{self.identifier}_batch_"
+
+    def name_output_file(self) -> str:
+        """
+        Generate the name of the output Radiance file from the identifier without the extension and batch number.
+        """
+        return f"output_{self.identifier}_batch_"
+
+    ##############################
+    # Read Output files methods
+    ##############################
+
+    def read_vf_from_radiance_output_files(self, path_output_folder: str):
+        """
+        Read the view factors from the Radiance output files and add them to the _viewed_surfaces_view_factor_list
+        attribute.
+        :param path_output_folder:
+        """
+        list_output_files = [f for f in os.listdir(path_output_folder) if f.startswith(self.name_output_file())]
+        for output_file in list_output_files:
+            if output_file.startswith(self.name_output_file()):
+                self._viewed_surfaces_view_factor_list.extend(
+                    read_ruflumtx_output_file(os.path.join(path_output_folder, output_file)))

@@ -7,61 +7,58 @@ from pyvista import PolyData
 
 from typing import List
 
+from tests.radiative_surface.radiative_surface_manager_test import num_ref_rectangles
 from .utils_folder_manipulation import check_parent_folder_exist
+from .utils_batches import split_into_batches
+from .utils_run_radiance import run_oconv_command_for_octree_generation
 
 
-def from_emitter_receiver_to_rad_files(emitter_polydata: PolyData, emitter_id: str,
-                                       receiver_polydata_list: List[PolyData], receiver_id_list: List[str],
-                                       path_emitter_folder: str,
-                                       path_receiver_folder: str, path_output_folder: str,
-                                       batch_index_emitter: int) -> (str, str, str):
+def from_emitter_rad_str_to_rad_file(emitter_rad_str: str, path_emitter_rad_file: str):
+    """
+    Convert the emitter PolyData to a Radiance file.
+    :param emitter_rad_str:
+    :param path_emitter_rad_file:
+    """
+    from_rad_str_to_rad_file(rad_str=emitter_rad_str, path_rad_file=path_emitter_rad_file)
+
+
+def from_receiver_rad_str_to_octree_file(receiver_rad_str_list: str, path_folder_octree: str, name_octree_file: str,
+                                         batch_size: int):
     """
     Convert the emitter and receiver PolyData to Radiance files.
-    :param emitter_polydata: PolyData, the emitter polydata.
-    :param emitter_id: str, the identifier of the emitter.
-    :param receiver_polydata_list: [PolyData], the list of receiver polydata.
-    :param receiver_id_list: [str], the list of identifiers of the receivers.
-    :param path_emitter_folder: str, the path of the folder where to save the emitter Radiance file.
-    :param path_receiver_folder: str, the path of the folder where to save the receiver Radiance files.
-    :param path_output_folder: str, the path of the folder where to save the output files.
-    :param batch_index_emitter: int, the index of the batch for the emitter due to the limit of simultaneous receivers
-        Radiance accepts.
-    :return path_emitter_rad_file: str, the path of the emitter Radiance file.
-    :return path_receiver_rad_file_list: [str], the list of paths of the receiver Radiance files.
-    :return path_output_file: [str], the list of paths of the output files.
+    :param receiver_rad_str_list: [str], the list of receiver polydata.
+    :param path_folder_octree: str, the path of the folder to save the octree file.
+    :param name_octree_file: str, the name of the octree file.
+    :param batch_size: int, the size of the batch.
     """
-    # Generate the strings for the emitter and receivers Radiance files
-    emitter_rad_str = from_polydata_to_dot_rad_str(emitter_polydata, emitter_id)
-    receiver_rad_str_list = [from_polydata_to_dot_rad_str(receiver_polydata, receiver_id) for
-                             receiver_polydata, receiver_id in zip(receiver_polydata_list, receiver_id_list)]
-    # Generate the paths of the Radiance files
-    path_emitter_rad_file = os.path.join(path_emitter_folder, f"emitter_{emitter_id}_{batch_index_emitter}.rad")
-    path_receiver_rad_file_list = os.path.join(path_receiver_folder,
-                                               f"receiver_for_{emitter_id}_batch_{batch_index_emitter}.rad")
-    path_output_file = os.path.join(path_output_folder, f"output_{emitter_id}_{batch_index_emitter}.txt")
-    # Generate the files
-    from_emitter_receiver_rad_str_to_rad_files(emitter_rad_str=emitter_rad_str,
-                                               receiver_rad_str_list=receiver_rad_str_list,
-                                               path_emitter_rad_file=path_emitter_folder,
-                                               path_receiver_rad_file=path_receiver_folder)
+    # Split the list of receiver PolyData into batches
+    receiver_rad_str_list_batches = split_into_batches(receiver_rad_str_list, batch_size)
+    num_batches = len(receiver_rad_str_list_batches)
+    #
+    name_rad_file_list = [name_octree_file + f"_batch_{i}" for i in range(num_batches)]
+    path_rad_file_list = [os.path.join(path_folder_octree, name_rad_file + ".rad") for name_rad_file in
+                          name_rad_file_list]
+    path_octree_file = os.path.join(path_folder_octree, name_octree_file + ".oct")
+    # Generate the initial rad file
+    for receiver_rad_str_batch, path_rad_file in zip(receiver_rad_str_list_batches, path_rad_file_list):
+        from_rad_str_list_to_octree_rad_file(rad_str_list=receiver_rad_str_batch, path_rad_file=path_rad_file)
+    # Convert the rad files to octree file
+    run_oconv_command_for_octree_generation(path_rad_file_list=path_rad_file_list, path_octree_file=path_octree_file)
+    # Delete the rad file
+    for path_rad_file in path_rad_file_list:
+        os.remove(path_rad_file)
 
-    return path_emitter_rad_file, path_receiver_rad_file_list, path_output_file
+    return path_octree_file
 
 
-def from_emitter_receiver_rad_str_to_rad_files(emitter_rad_str: str,
-                                               receiver_rad_str_list: List[PolyData],
-                                               path_emitter_rad_file: str,
-                                               path_receiver_rad_file: str):
+def from_receiver_rad_str_to_rad_files(receiver_rad_str_list: List[str],
+                                       path_receiver_rad_file: str):
     """
     Convert the emitter and receiver PolyData to Radiance files.
-    :param emitter_rad_str: PolyData, the emitter polydata.
-    :param emitter_id: str, the identifier of the emitter.
-    :param receiver_rad_str_list: [PolyData], the list of receiver polydata.
-    :param path_emitter_rad_file: str, the path file of the emitter Radiance file.
+    :param receiver_rad_str_list: [str], the list of receiver polydata.
     :param path_receiver_rad_file: str, the path of the receiver Radiance file.
     """
     # Generate the receiver Radiance files
-    from_rad_str_to_rad_file(rad_str=emitter_rad_str, path_rad_file=path_emitter_rad_file)
     from_rad_str_list_to_rad_file(rad_str_list=receiver_rad_str_list, path_rad_file=path_receiver_rad_file)
 
 
@@ -90,6 +87,22 @@ def from_rad_str_list_to_rad_file(rad_str_list: List[str], path_rad_file: str):
     check_parent_folder_exist(path_rad_file)
     # Convert the PolyData to a Radiance file
     rad_file_content = r"#@rfluxmtx h=u" + "\n"
+    for rad_str in rad_str_list:
+        rad_file_content += rad_str
+    with open(path_rad_file, "w") as f:
+        f.write(rad_file_content)
+
+
+def from_rad_str_list_to_octree_rad_file(rad_str_list: List[str], path_rad_file: str):
+    """
+    Convert a list of PolyData to a Radiance file.
+    :param rad_str_list: [str], the list of Radiance strings of the surfaces.
+    :param path_rad_file: str, the path of the Radiance file.
+    """
+    # Check if the folder of the output file exists
+    check_parent_folder_exist(path_rad_file)
+    # Convert the PolyData to a Radiance file
+    rad_file_content = ''
     for rad_str in rad_str_list:
         rad_file_content += rad_str
     with open(path_rad_file, "w") as f:

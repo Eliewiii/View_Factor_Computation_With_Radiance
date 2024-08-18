@@ -11,9 +11,10 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from .radiative_surface_class import RadiativeSurface
 
-from ..utils import from_emitter_receiver_rad_str_to_rad_files, split_into_batches, create_folder, \
-    parallel_computation_in_batches_with_return, run_radiant_vf_computation_in_batches, \
-    compute_vf_between_emitter_and_receivers_radiance, generate_random_rectangles,object_method_wrapper
+from ..utils import from_receiver_rad_str_to_rad_files, from_receiver_rad_str_to_octree_file, \
+    from_emitter_rad_str_to_rad_file, split_into_batches, \
+    create_folder, parallel_computation_in_batches_with_return, run_radiant_vf_computation_in_batches, \
+    compute_vf_between_emitter_and_receivers_radiance, generate_random_rectangles, object_method_wrapper
 
 
 class RadiativeSurfaceManager:
@@ -268,7 +269,8 @@ class RadiativeSurfaceManager:
         self._add_argument_to_radiance_argument_list(argument_list_to_add)
 
     def generate_radiance_inputs_for_one_surface(self, radiative_surface_obj: RadiativeSurface,
-                                                 path_emitter_folder: str, path_receiver_folder: str,
+                                                 path_emitter_folder: str, path_octree_folder,
+                                                 path_receiver_folder: str,
                                                  path_output_folder: str, num_receiver_per_file: int = 1):
         """
         Generate the Radiance input files for one RadiativeSurface object.
@@ -288,22 +290,27 @@ class RadiativeSurfaceManager:
                                  radiative_surface_obj.get_viewed_surfaces_id_list()]
         receiver_rad_str_list_batches = split_into_batches(receiver_rad_str_list, num_receiver_per_file)
         # Generate the paths of the Radiance files
-        name_emitter_rad_file, name_receiver_rad_file, name_output_file = radiative_surface_obj.generate_rad_file_name()
+        name_emitter_rad_file, name_octree_file, name_receiver_rad_file, name_output_file = radiative_surface_obj.generate_rad_file_name()
         path_emitter_rad_file = os.path.join(path_emitter_folder, name_emitter_rad_file + ".rad")
-        #
+        # Generate emitter file
+        from_emitter_rad_str_to_rad_file(emitter_rad_str=emitter_rad_str, path_emitter_rad_file=path_emitter_rad_file)
+        # Generate the octree file
+        path_octree_file = from_receiver_rad_str_to_octree_file(receiver_rad_str_list=receiver_rad_str_list,
+                                             path_folder_octree=path_octree_folder,
+                                             name_octree_file=name_octree_file, batch_size=num_receiver_per_file)
         argument_list_to_add = []
         # Generate the Radiance files for each batch
         for i, batch in enumerate(receiver_rad_str_list_batches):
             path_receiver_rad_file = os.path.join(path_receiver_folder, name_receiver_rad_file + f"{i}.rad")
             path_output_file = os.path.join(path_output_folder, name_output_file + f"{i}.txt")
             # Generate the files
-            from_emitter_receiver_rad_str_to_rad_files(emitter_rad_str=emitter_rad_str,
-                                                       receiver_rad_str_list=batch,
-                                                       path_emitter_rad_file=path_emitter_rad_file,
-                                                       path_receiver_rad_file=path_receiver_rad_file)
+            from_receiver_rad_str_to_rad_files(emitter_rad_str=emitter_rad_str,
+                                               receiver_rad_str_list=batch,
+                                               path_emitter_rad_file=path_emitter_rad_file,
+                                               path_receiver_rad_file=path_receiver_rad_file)
 
             # Add the Radiance argument to the list
-            argument_list_to_add.append([path_emitter_rad_file, path_receiver_rad_file, path_output_file])
+            argument_list_to_add.append([path_emitter_rad_file, path_receiver_rad_file, path_output_file,path_octree_file])
 
         return argument_list_to_add
 
@@ -367,7 +374,6 @@ class RadiativeSurfaceManager:
             num_workers=num_workers,
             nb_rays=nb_rays)
 
-
     ###############################
     # Read the results
     ###############################
@@ -390,7 +396,6 @@ class RadiativeSurfaceManager:
             num_workers=num_workers,
             method_name="read_vf_from_radiance_output_files",
             path_output_folder=path_output_folder)
-
 
 
 def flatten_table_to_lists(table):

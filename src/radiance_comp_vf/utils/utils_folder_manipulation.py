@@ -23,7 +23,6 @@ def create_folder(folder_path: str, overwrite: bool = False):
         shutil.rmtree(folder_path)
         os.makedirs(folder_path)
 
-
 def check_file_exist(file_path: str):
     """
     Check if a file exists and raise an error if not.
