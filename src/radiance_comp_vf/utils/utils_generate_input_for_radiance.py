@@ -7,7 +7,7 @@ from pyvista import PolyData
 
 from typing import List
 
-from tests.radiative_surface.radiative_surface_manager_test import num_ref_rectangles
+
 from .utils_folder_manipulation import check_parent_folder_exist
 from .utils_batches import split_into_batches
 from .utils_run_radiance import run_oconv_command_for_octree_generation

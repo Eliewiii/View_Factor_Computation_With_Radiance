@@ -4,11 +4,14 @@ Class of surfaces for radiative simulations
 
 import os
 
+import os
+print(os.getcwd())
+
 from copy import deepcopy
 from pyvista import PolyData
 from typing import List
 
-from ..utils import from_polydata_to_dot_rad_str, generate_random_rectangles, read_ruflumtx_output_file
+from ..utils import  from_polydata_to_dot_rad_str,generate_random_rectangles, read_ruflumtx_output_file
 
 
 class RadiativeSurface:
@@ -22,6 +25,10 @@ class RadiativeSurface:
         self.polydata_geometry: PolyData = None
         self._viewed_surfaces_id_list: List = []
         self._viewed_surfaces_view_factor_list: List = []
+        # VF properties
+        self.vf_surface:float = 0.
+        self.vf_ground: float = 0.
+        self.vf_sky: float = 0.
         # Radiative properties
         self.emissivity: float = None
         self.reflectivity: float = None
@@ -126,6 +133,8 @@ class RadiativeSurface:
         Add a viewed surface to the current surface.
         :param viewed_surface_id_list: str or [str], the identifier of the viewed surface.
         """
+        if not isinstance(viewed_surface_id_list, list):
+            raise ValueError("The viewed surface identifier must be a list of strings.")
         for viewed_surface_id in viewed_surface_id_list:
             if not isinstance(viewed_surface_id, str):
                 raise ValueError("The viewed surface identifier must be a string.")
@@ -139,6 +148,12 @@ class RadiativeSurface:
         Get the list of identifiers of the surfaces viewed by the current surface.
         """
         return list(self._viewed_surfaces_id_list)
+
+    def get_viewed_surfaces_view_factor_list(self):
+        """
+        Get the list of view factors of the surfaces viewed by the current surface.
+        """
+        return list(self._viewed_surfaces_view_factor_list)
 
     ##############################
     # File Generation Methods
@@ -179,7 +194,7 @@ class RadiativeSurface:
         return f"output_{self.identifier}_batch_"
 
     ##############################
-    # Read Output files methods
+    # Read VF Output Files Methods
     ##############################
 
     def read_vf_from_radiance_output_files(self, path_output_folder: str):

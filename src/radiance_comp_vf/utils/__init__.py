@@ -1,5 +1,5 @@
 __all__ = ['utils_generate_input_for_radiance', 'utils_folder_manipulation', 'utils_run_radiance',
-           'utils_parallel_computing', 'utils_parallel_computing_with_return', 'utils_batches','utils_random_rectangle_generation']
+           'utils_parallel_computing', 'utils_parallel_computing_with_return', 'utils_batches','utils_random_rectangle_generation',"utils_objects_wrapper"]
 
 from .utils_generate_input_for_radiance import *
 from .utils_folder_manipulation import *

@@ -232,26 +232,25 @@ class RadiativeSurfaceManager:
     ###############################
     # Files and commands generation
     ###############################
-    def generate_radiance_inputs_for_all_surfaces_in_parallel(self, path_emitter_folder: str,
-                                                              path_receiver_folder: str,
-                                                              path_output_folder: str,
+    def generate_radiance_inputs_for_all_surfaces_in_parallel(self, path_root_simulation_folder: str,
                                                               num_receiver_per_file: int = 1,
                                                               num_workers=1, worker_batch_size=1,
-                                                              executor_type=ThreadPoolExecutor):
+                                                              executor_type=ThreadPoolExecutor,
+                                                              overwrite_folders: bool = False):
         """
         Generate the Radiance input files for all the RadiativeSurface objects in parallel.
-        :param path_emitter_folder: str, the folder path where the emitter Radiance files will be saved.
-        :param path_emitter_folder: str, the folder path where the emitter Radiance files will be saved.
-        :param path_receiver_folder: str, the folder path where the receiver Radiance files will be saved.
-        :param path_output_folder: str, the folder path where the output Radiance files will be saved.
+        :param path_root_simulation_folder: str, the folder path where the Radiance files will be saved.
         :param num_receiver_per_file: int, the number of receivers in the receiver rad file per batch.
         :param num_workers: int, the number of workers to use for the parallelization
         :param worker_batch_size: int, the size of the batch of surfaces to process in parallel.
         :param executor_type: the type of executor to use for the parallelization.
+        :param overwrite_folders: bool, if True, overwrite the folders if they already exist.
         """
         # Generate the folder if they don't exist
-        create_folder(path_emitter_folder, path_receiver_folder, path_output_folder, overwrite=True)
-        # Split t
+        path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.create_vf_simulation_folders(
+            path_root_simulation_folder,
+            overwrite=overwrite_folders)
+        # Run in parallel the generation of the Radiance files
         argument_list_to_add = parallel_computation_in_batches_with_return(
             func=self.generate_radiance_inputs_for_one_surface,
             input_tables=[[radiative_surface_obj] for radiative_surface_obj in
@@ -260,6 +259,7 @@ class RadiativeSurfaceManager:
             worker_batch_size=worker_batch_size,
             num_workers=num_workers,
             path_emitter_folder=path_emitter_folder,
+            path_octree_folder=path_octree_folder,
             path_receiver_folder=path_receiver_folder,
             path_output_folder=path_output_folder,
             num_receiver_per_file=num_receiver_per_file)
@@ -276,6 +276,7 @@ class RadiativeSurfaceManager:
         Generate the Radiance input files for one RadiativeSurface object.
         :param radiative_surface_obj: RadiativeSurface, the RadiativeSurface object.
         :param path_emitter_folder: str, the folder path where the emitter Radiance files will be saved.
+        :param path_octree_folder: str, the folder path where the octree files will be saved.
         :param path_receiver_folder: str, the folder path where the receiver Radiance files will be saved.
         :param path_output_folder: str, the folder path where the output Radiance files will be saved.
         :param num_receiver_per_file: int, the number of receivers in the receiver rad file per batch. Each batch is
@@ -296,8 +297,9 @@ class RadiativeSurfaceManager:
         from_emitter_rad_str_to_rad_file(emitter_rad_str=emitter_rad_str, path_emitter_rad_file=path_emitter_rad_file)
         # Generate the octree file
         path_octree_file = from_receiver_rad_str_to_octree_file(receiver_rad_str_list=receiver_rad_str_list,
-                                             path_folder_octree=path_octree_folder,
-                                             name_octree_file=name_octree_file, batch_size=num_receiver_per_file)
+                                                                path_folder_octree=path_octree_folder,
+                                                                name_octree_file=name_octree_file,
+                                                                batch_size=num_receiver_per_file)
         argument_list_to_add = []
         # Generate the Radiance files for each batch
         for i, batch in enumerate(receiver_rad_str_list_batches):
@@ -310,9 +312,29 @@ class RadiativeSurfaceManager:
                                                path_receiver_rad_file=path_receiver_rad_file)
 
             # Add the Radiance argument to the list
-            argument_list_to_add.append([path_emitter_rad_file, path_receiver_rad_file, path_output_file,path_octree_file])
+            argument_list_to_add.append(
+                [path_emitter_rad_file, path_receiver_rad_file, path_output_file, path_octree_file])
 
         return argument_list_to_add
+
+    @staticmethod
+    def create_vf_simulation_folders(path_root_simulation_folder: str, overwrite: bool = False) -> (
+            str, str, str, str, str):
+        """
+        Create the folders for the view factor simulation.
+        :param path_root_simulation_folder: path of the root folder where the folders that will contain the Radiance
+        input and output files will be created.
+        :param overwrite: bool, if True, overwrite the root folders if they already exist.
+        :return: (str,str,str,str), the path of the emitter, octree, receiver and output folders.
+        """
+        create_folder(path_root_simulation_folder, overwrite=overwrite)
+        path_emitter_folder = os.path.join(path_root_simulation_folder, "emitter")
+        path_octree_folder = os.path.join(path_root_simulation_folder, "octree")
+        path_receiver_folder = os.path.join(path_root_simulation_folder, "receiver")
+        path_output_folder = os.path.join(path_root_simulation_folder, "output")
+        create_folder(path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder, overwrite=True)
+
+        return path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder
 
     #########################
     # View factor computation

@@ -13,5 +13,5 @@ def object_method_wrapper(obj, method_name: str, *args, **kwargs):
     :param kwargs: Keyword arguments to pass to the method.
     :return: The result of the method call.
     """
-    method = getattr(obj, method_name)  # Get the method from the object
-    return method(*args, **kwargs)  # Call the method and return the result
+    method = getattr(obj, method_name)
+    return method(*args, **kwargs)
