@@ -2,7 +2,6 @@
 Additional utility functions for working with PyVista PolyData objects.
 """
 from pyvista import PolyData
-import numpy as np
 
 
 def compute_polydata_area(polydata_obj: PolyData) -> float:

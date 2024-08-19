@@ -72,7 +72,7 @@ def write_radiance_command_for_vf_computation(path_emitter_rad_file: str, path_r
 def compute_vf_between_emitter_and_receivers_radiance(path_emitter_rad_file: str,
                                                       path_receiver_rad_file: str,
                                                       path_output_file: str,
-                                                      path_octree_context: str = "",
+                                                      path_octree_context: str = None,
                                                       nb_rays: int = 10000):
     """
     Compute the view factor between 2 rectangles with Radiance.

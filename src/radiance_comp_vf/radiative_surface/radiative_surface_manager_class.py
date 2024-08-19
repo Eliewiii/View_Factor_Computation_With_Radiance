@@ -271,9 +271,10 @@ class RadiativeSurfaceManager:
         self._add_argument_to_radiance_argument_list(argument_list_to_add)
 
     def generate_radiance_inputs_for_one_surface(self, radiative_surface_obj: RadiativeSurface,
-                                                 path_emitter_folder: str, path_octree_folder,
+                                                 path_emitter_folder: str, path_octree_folder: str,
                                                  path_receiver_folder: str,
-                                                 path_output_folder: str, num_receiver_per_file: int = 1):
+                                                 path_output_folder: str, num_receiver_per_file: int = 1,
+                                                 consider_octree: bool = False):
         """
         Generate the Radiance input files for one RadiativeSurface object.
         :param radiative_surface_obj: RadiativeSurface, the RadiativeSurface object.
@@ -283,6 +284,7 @@ class RadiativeSurfaceManager:
         :param path_output_folder: str, the folder path where the output Radiance files will be saved.
         :param num_receiver_per_file: int, the number of receivers in the receiver rad file per batch. Each batch is
             simulated the with separate calls of Radiance and generate results in different files.
+        :param consider_octree: bool, if True, consider the octree file in the Radiance command.
         """
         # Check if the surface has viewed surfaces aka simulation is needed
         if len(radiative_surface_obj.get_viewed_surfaces_id_list()) == 0:
@@ -297,11 +299,16 @@ class RadiativeSurfaceManager:
         path_emitter_rad_file = os.path.join(path_emitter_folder, name_emitter_rad_file + ".rad")
         # Generate emitter file
         from_emitter_rad_str_to_rad_file(emitter_rad_str=emitter_rad_str, path_emitter_rad_file=path_emitter_rad_file)
-        # Generate the octree file
-        path_octree_file = from_receiver_rad_str_to_octree_file(receiver_rad_str_list=receiver_rad_str_list,
-                                                                path_folder_octree=path_octree_folder,
-                                                                name_octree_file=name_octree_file,
-                                                                batch_size=num_receiver_per_file)
+
+        if consider_octree:
+            # Generate the octree file
+            path_octree_file = from_receiver_rad_str_to_octree_file(receiver_rad_str_list=receiver_rad_str_list,
+                                                                    path_folder_octree=path_octree_folder,
+                                                                    name_octree_file=name_octree_file,
+                                                                    batch_size=num_receiver_per_file)
+        else:
+            path_octree_file = None
+
         argument_list_to_add = []
         # Generate the Radiance files for each batch
         for i, batch in enumerate(receiver_rad_str_list_batches):
@@ -346,12 +353,8 @@ class RadiativeSurfaceManager:
         """
         Compute the view factor between multiple emitter and receiver with Radiance in batches.
         :param nb_rays: int, the number of rays to use.
-        :param command_batch_size: int, the size of the batch of commands to run one after another
-            in one command in each thread/process.
-        :param num_workers: int, the number of workers to use for the parallelization.
-        :param worker_batch_size: int, the size of the batch of commands to run in parallel.
-        :param executor_type: the type of executor to use for the parallelization.
         """
+        self.sim_parameter_dict["num_rays"] = nb_rays
         for input_arg in self._radiance_argument_list:
             compute_vf_between_emitter_and_receivers_radiance(*input_arg, nb_rays=nb_rays)
 
@@ -364,8 +367,7 @@ class RadiativeSurfaceManager:
         :param worker_batch_size: int, the size of the batch of commands to run in parallel.
         :param executor_type: the type of executor to use for the parallelization.
         """
-        # todo: add the octree to the arguments (and maybe generate it)
-
+        self.sim_parameter_dict["num_rays"] = nb_rays
         parallel_computation_in_batches_with_return(
             func=compute_vf_between_emitter_and_receivers_radiance,
             input_tables=self._radiance_argument_list,
@@ -387,6 +389,9 @@ class RadiativeSurfaceManager:
         :param worker_batch_size: int, the size of the batch of commands to run in parallel.
         :param executor_type: the type of executor to use for the parallelization.
         """
+
+        self.sim_parameter_dict["num_rays"] = nb_rays
+
         # todo: add the octree to the arguments (and maybe generate it)
         input_batches = split_into_batches(self._radiance_argument_list, batch_size=command_batch_size)
 
@@ -423,18 +428,18 @@ class RadiativeSurfaceManager:
 
     def adjust_radiative_surface_view_factors(self):
         """
-        Adjust the view factors of the RadiativeSurface objects.
+        Adjust the pairs view factors of the RadiativeSurface objects.
         """
-        # todo: finish implementing this method
+        # Technically, only half of the view factors need to be verified (one triangle of the matrix), but it will make
+        # the code more complex, and not necessarily faster due to additional conditions to check.
 
+        for surface_id_1,radiative_surface_obj_1 in self._radiative_surface_dict.items():
+            vf_list = radiative_surface_obj_1.get_viewed_surfaces_view_factor_list()
+            viewed_surfaces_id_list = radiative_surface_obj_1.get_viewed_surfaces_id_list()
+            for surface_id_2,vf_1_2 in zip(viewed_surfaces_id_list,vf_list):
+                radiative_surface_obj_2=self.get_radiative_surface(surface_id_2)
+                vf_2_1 = radiative_surface_obj_2.get_view_factor_from_surface_id(surface_id=surface_id_1)
 
-
-        for radiative_surface_obj in self._radiative_surface_dict.values():
-            vf_list = radiative_surface_obj.get_viewed_surfaces_view_factor_list()
-            viewed_surfaces_id_list = radiative_surface_obj.get_viewed_surfaces_id_list()
-            for index_surface, surface_id in enumerate(viewed_surfaces_id_list):
-                self.get_radiative_surface(surface_id).add_view_factor(radiative_surface_obj.identifier,
-                                                                      vf_list[index_surface])
 
 
 def flatten_table_to_lists(table):

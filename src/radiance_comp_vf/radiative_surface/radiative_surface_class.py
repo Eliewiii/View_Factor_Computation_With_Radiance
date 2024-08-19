@@ -5,13 +5,15 @@ Class of surfaces for radiative simulations
 import os
 
 import os
+
 print(os.getcwd())
 
 from copy import deepcopy
 from pyvista import PolyData
 from typing import List
 
-from ..utils import  from_polydata_to_dot_rad_str,generate_random_rectangles, read_ruflumtx_output_file
+from ..utils import from_polydata_to_dot_rad_str, generate_random_rectangles, read_ruflumtx_output_file, \
+    compute_polydata_area
 
 
 class RadiativeSurface:
@@ -22,11 +24,16 @@ class RadiativeSurface:
     def __init__(self, identifier: str):
         self.identifier: str = identifier
         self.hb_identifier: str = None
+        # Geometry
         self.polydata_geometry: PolyData = None
+        self.area: float = None
+        #
+        self._num_viewed_surfaces: int = 0
+        self._viewed_surfaces_dict: dict = {}
         self._viewed_surfaces_id_list: List = []
         self._viewed_surfaces_view_factor_list: List = []
         # VF properties
-        self.vf_surface:float = 0.
+        self.vf_surface: float = 0.
         self.vf_ground: float = 0.
         self.vf_sky: float = 0.
         # Radiative properties
@@ -81,6 +88,7 @@ class RadiativeSurface:
         radiative_surface_obj = cls(identifier)
         radiative_surface_obj.polydata_geometry = polydata
         radiative_surface_obj.rad_file_content = from_polydata_to_dot_rad_str(polydata, identifier)
+        radiative_surface_obj.area = compute_polydata_area(polydata_obj=polydata)
 
         return radiative_surface_obj
 
@@ -140,6 +148,8 @@ class RadiativeSurface:
                 raise ValueError("The viewed surface identifier must be a string.")
             if viewed_surface_id not in self._viewed_surfaces_id_list:
                 self._viewed_surfaces_id_list.append(viewed_surface_id)
+                self._viewed_surfaces_dict[viewed_surface_id] = self.num_viewed_surfaces
+                self._num_viewed_surfaces += 1
             else:
                 raise ValueError(f"The surface {viewed_surface_id} is already in the viewed surfaces list.")
 
@@ -154,6 +164,44 @@ class RadiativeSurface:
         Get the list of view factors of the surfaces viewed by the current surface.
         """
         return list(self._viewed_surfaces_view_factor_list)
+
+    def get_view_factor_from_surface_id(self, surface_id: str):
+        """
+        Get the view factor of a surface viewed by the current surface.
+        :param surface_id: str, the identifier of the viewed surface.
+        """
+        try:
+            index = self.get_index_viewed_surface(surface_id)
+            return self._viewed_surfaces_view_factor_list[index]
+        except KeyError:
+            raise KeyError(f"The surface {surface_id} is not in the viewed surfaces list.")
+
+    def get_viewed_surfaces_dict(self):
+        """
+        Get the dictionary of viewed surfaces.
+        """
+        return dict(self._viewed_surfaces_dict)
+
+    def get_index_viewed_surface(self, viewed_surface_id: str):
+        """
+        Get the index of a viewed surface.
+        :param viewed_surface_id: str, the identifier of the viewed surface.
+        """
+        try:
+            return self._viewed_surfaces_dict[viewed_surface_id]
+        except KeyError:
+            raise KeyError(f"The surface {viewed_surface_id} is not in the viewed surfaces list.")
+
+    def adjust_view_factor(self, surface_id: str, view_factor: float):
+        """"
+        :param surface_id:
+        :param view_factor:
+        """
+        try:
+            index = self.get_index_viewed_surface(surface_id)
+            self._viewed_surfaces_view_factor_list[index] = view_factor
+        except KeyError:
+            raise KeyError(f"The surface {surface_id} is not in the viewed surfaces list.")
 
     ##############################
     # File Generation Methods
