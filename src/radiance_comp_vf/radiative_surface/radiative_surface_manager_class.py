@@ -33,6 +33,10 @@ class RadiativeSurfaceManager:
         return (f"RadiativeSurfaceManager with {len(self._radiative_surface_dict)} RadiativeSurface objects."
                 f"list of RadiativeSurface objects: {list(self._radiative_surface_dict.keys())}")
 
+    ##################################
+    # Initialization with Class Methods
+    ##################################
+
     @classmethod
     def from_random_rectangles(cls, num_ref_rectangles: int = 1, num_random_rectangle: int = 10,
                                min_size: float = 0.01, max_size: float = 10,
@@ -129,6 +133,10 @@ class RadiativeSurfaceManager:
 
         return radiative_surface_manager
 
+    ##############################
+    # Core Functions
+    ###############################
+
     def to_pkl(self, path_folder: str, file_name: str = "radiative_surface_manager.pkl"):
         """
         Save the RadiativeSurfaceManager object to a pickle file.
@@ -198,12 +206,6 @@ class RadiativeSurfaceManager:
         :return:
         """
         return list(self._radiative_surface_dict.keys())
-
-    def make_context_octree(self):
-        """
-        Make the context octree for the Radiance simulation.
-        """
-        # todo: implement this method
 
     def _add_argument_to_radiance_argument_list(self, argument_list: List[List[str]]):
         """
@@ -291,8 +293,9 @@ class RadiativeSurfaceManager:
             return [[]]
         # Get the rad_str of the emitter and receivers
         emitter_rad_str = radiative_surface_obj.rad_file_content
-        receiver_rad_str_list = [self.get_radiative_surface(receiver_id).rad_file_content for receiver_id in
-                                 radiative_surface_obj.get_viewed_surfaces_id_list()]
+        receiver_rad_str_list: List[List[str]] = [self.get_radiative_surface(receiver_id).rad_file_content for
+                                                  receiver_id in
+                                                  radiative_surface_obj.get_viewed_surfaces_id_list()]
         receiver_rad_str_list_batches = split_into_batches(receiver_rad_str_list, num_receiver_per_file)
         # Generate the paths of the Radiance files
         name_emitter_rad_file, name_octree_file, name_receiver_rad_file, name_output_file = radiative_surface_obj.generate_rad_file_name()
@@ -315,9 +318,7 @@ class RadiativeSurfaceManager:
             path_receiver_rad_file = os.path.join(path_receiver_folder, name_receiver_rad_file + f"{i}.rad")
             path_output_file = os.path.join(path_output_folder, name_output_file + f"{i}.txt")
             # Generate the files
-            from_receiver_rad_str_to_rad_files(emitter_rad_str=emitter_rad_str,
-                                               receiver_rad_str_list=batch,
-                                               path_emitter_rad_file=path_emitter_rad_file,
+            from_receiver_rad_str_to_rad_files(receiver_rad_str_list=batch,
                                                path_receiver_rad_file=path_receiver_rad_file)
 
             # Add the Radiance argument to the list
@@ -327,21 +328,26 @@ class RadiativeSurfaceManager:
         return argument_list_to_add
 
     @staticmethod
-    def create_vf_simulation_folders(path_root_simulation_folder: str, overwrite: bool = False) -> (
+    def create_vf_simulation_folders(path_root_simulation_folder: str, overwrite: bool = False,
+                                     return_file_path_only: bool = False) -> (
             str, str, str, str, str):
         """
         Create the folders for the view factor simulation.
         :param path_root_simulation_folder: path of the root folder where the folders that will contain the Radiance
         input and output files will be created.
         :param overwrite: bool, if True, overwrite the root folders if they already exist.
+        :param return_file_path_only: bool, if True, return only the path of the folders.
         :return: (str,str,str,str), the path of the emitter, octree, receiver and output folders.
         """
-        create_folder(path_root_simulation_folder, overwrite=overwrite)
+
         path_emitter_folder = os.path.join(path_root_simulation_folder, "emitter")
         path_octree_folder = os.path.join(path_root_simulation_folder, "octree")
         path_receiver_folder = os.path.join(path_root_simulation_folder, "receiver")
         path_output_folder = os.path.join(path_root_simulation_folder, "output")
-        create_folder(path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder, overwrite=True)
+        if not return_file_path_only:
+            create_folder(path_root_simulation_folder, overwrite=overwrite)
+            create_folder(path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder,
+                          overwrite=True)
 
         return path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder
 
@@ -433,13 +439,45 @@ class RadiativeSurfaceManager:
         # Technically, only half of the view factors need to be verified (one triangle of the matrix), but it will make
         # the code more complex, and not necessarily faster due to additional conditions to check.
 
-        for surface_id_1,radiative_surface_obj_1 in self._radiative_surface_dict.items():
+        for surface_id_1, radiative_surface_obj_1 in self._radiative_surface_dict.items():
             vf_list = radiative_surface_obj_1.get_viewed_surfaces_view_factor_list()
             viewed_surfaces_id_list = radiative_surface_obj_1.get_viewed_surfaces_id_list()
-            for surface_id_2,vf_1_2 in zip(viewed_surfaces_id_list,vf_list):
-                radiative_surface_obj_2=self.get_radiative_surface(surface_id_2)
+            for surface_id_2, vf_1_2 in zip(viewed_surfaces_id_list, vf_list):
+                radiative_surface_obj_2 = self.get_radiative_surface(surface_id_2)
                 vf_2_1 = radiative_surface_obj_2.get_view_factor_from_surface_id(surface_id=surface_id_1)
+                if self.is_view_factor_to_adjust(vf_1_2=vf_1_2, vf_2_1=vf_2_1,
+                                                 num_rays=self.sim_parameter_dict["num_rays"]):
+                    new_vf_1_2 = self.adjust_view_factors(vf_2_1=vf_2_1, area_1=radiative_surface_obj_1.area,
+                                                          area_2=radiative_surface_obj_2.area)
+                    radiative_surface_obj_1.set_view_factor_from_surface_id(surface_id=surface_id_2,
+                                                                            view_factor=new_vf_1_2)
 
+    @staticmethod
+    def is_view_factor_to_adjust(vf_1_2: float, vf_2_1: float, num_rays: int) -> bool:
+        """
+        Adjust the view factors between two surfaces.
+        :param vf_1_2: float, the view factor from surface 1 to surface 2.
+        :param vf_2_1: float, the view factor from surface 2 to surface 1.
+        :param num_rays: int, the number of rays used for the view factor computation with Radiance.
+        :return: bool, True if the view factors vf_1_2 should be adjusted using vf_2_1, False otherwise.
+        """
+        if (vf_1_2 > vf_2_1  # No to adjust if vf_1_2 is smaller than vf_2_1
+                or vf_2_1 < 10 / num_rays  # if vf_2_1 is too small, it is not reliable
+                or vf_1_2 > vf_2_1 / 5.):  # The bounds could be adjusted, like this it does not ensure vf reciprocity
+            return False
+        else:
+            return True
+
+    @staticmethod
+    def adjust_view_factors(vf_2_1: float, area_1: float, area_2: float):
+        """
+        Adjust the view factors using the reciprocity relation between view factors.
+        :param vf_2_1: float, the view factor from surface 2 to surface 1.
+        :param area_1: float, the area of the surface 1.
+        :param area_2: float, the area of the surface 2.
+        :return: float, the adjusted view factor from surface 1 to surface 2.
+        """
+        return vf_2_1 * area_2 / area_1
 
 
 def flatten_table_to_lists(table):
