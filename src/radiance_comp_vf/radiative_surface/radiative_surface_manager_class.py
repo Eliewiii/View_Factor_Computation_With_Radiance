@@ -26,6 +26,8 @@ class RadiativeSurfaceManager:
         self._radiative_surface_dict: dict = {}
         self.context_octree = None
         self._radiance_argument_list: List[List] = []
+        # Simulation parameters
+        self.sim_parameter_dict = {"num_rays": None, "num_receiver_per_file": None}
 
     def __str__(self):
         return (f"RadiativeSurfaceManager with {len(self._radiative_surface_dict)} RadiativeSurface objects."
@@ -418,6 +420,21 @@ class RadiativeSurfaceManager:
             num_workers=num_workers,
             method_name="read_vf_from_radiance_output_files",
             path_output_folder=path_output_folder)
+
+    def adjust_radiative_surface_view_factors(self):
+        """
+        Adjust the view factors of the RadiativeSurface objects.
+        """
+        # todo: finish implementing this method
+
+
+
+        for radiative_surface_obj in self._radiative_surface_dict.values():
+            vf_list = radiative_surface_obj.get_viewed_surfaces_view_factor_list()
+            viewed_surfaces_id_list = radiative_surface_obj.get_viewed_surfaces_id_list()
+            for index_surface, surface_id in enumerate(viewed_surfaces_id_list):
+                self.get_radiative_surface(surface_id).add_view_factor(radiative_surface_obj.identifier,
+                                                                      vf_list[index_surface])
 
 
 def flatten_table_to_lists(table):

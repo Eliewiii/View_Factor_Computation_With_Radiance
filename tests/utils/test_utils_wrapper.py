@@ -2,11 +2,6 @@
 
 """
 
-import os
-print(os.getcwd())
-
-
-from src.radiance_comp_vf import RadiativeSurface
 from src.radiance_comp_vf.utils import object_method_wrapper
 
 
