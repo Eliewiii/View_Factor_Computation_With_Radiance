@@ -240,7 +240,9 @@ class RadiativeSurfaceManager:
                                                               num_receiver_per_file: int = 1,
                                                               num_workers=1, worker_batch_size=1,
                                                               executor_type=ThreadPoolExecutor,
-                                                              overwrite_folders: bool = False):
+                                                              overwrite_folders: bool = False,
+                                                              num_receiver_per_octree: int = 1000,
+                                                              consider_octree: bool = True):
         """
         Generate the Radiance input files for all the RadiativeSurface objects in parallel.
         :param path_root_simulation_folder: str, the folder path where the Radiance files will be saved.
@@ -249,6 +251,9 @@ class RadiativeSurfaceManager:
         :param worker_batch_size: int, the size of the batch of surfaces to process in parallel.
         :param executor_type: the type of executor to use for the parallelization.
         :param overwrite_folders: bool, if True, overwrite the folders if they already exist.
+        :param num_receiver_per_octree: int, the number of receivers per octree sub file
+            (due to radiance limitation)
+        :param consider_octree: bool, if True, consider the octree file in the Radiance command.
         """
         # Generate the folder if they don't exist
         path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.create_vf_simulation_folders(
@@ -266,7 +271,9 @@ class RadiativeSurfaceManager:
             path_octree_folder=path_octree_folder,
             path_receiver_folder=path_receiver_folder,
             path_output_folder=path_output_folder,
-            num_receiver_per_file=num_receiver_per_file)
+            num_receiver_per_file=num_receiver_per_file,
+            num_receiver_per_octree=num_receiver_per_octree,
+            consider_octree=consider_octree)
 
         argument_list_to_add = flatten_table_to_lists(argument_list_to_add)
 
@@ -276,7 +283,8 @@ class RadiativeSurfaceManager:
                                                  path_emitter_folder: str, path_octree_folder: str,
                                                  path_receiver_folder: str,
                                                  path_output_folder: str, num_receiver_per_file: int = 1,
-                                                 consider_octree: bool = False):
+                                                 num_receiver_per_octree: int = 1000,
+                                                 consider_octree: bool = True):
         """
         Generate the Radiance input files for one RadiativeSurface object.
         :param radiative_surface_obj: RadiativeSurface, the RadiativeSurface object.
@@ -284,8 +292,9 @@ class RadiativeSurfaceManager:
         :param path_octree_folder: str, the folder path where the octree files will be saved.
         :param path_receiver_folder: str, the folder path where the receiver Radiance files will be saved.
         :param path_output_folder: str, the folder path where the output Radiance files will be saved.
-        :param num_receiver_per_file: int, the number of receivers in the receiver rad file per batch. Each batch is
-            simulated the with separate calls of Radiance and generate results in different files.
+        :param num_receiver_per_file: int, the number of receivers in the receiver rad file per batch. Each
+            batch is simulated the with separate calls of Radiance and generate results in different files.
+        :param num_receiver_per_octree: int, the number of receivers per octree file.
         :param consider_octree: bool, if True, consider the octree file in the Radiance command.
         """
         # Check if the surface has viewed surfaces aka simulation is needed
@@ -296,36 +305,107 @@ class RadiativeSurfaceManager:
         receiver_rad_str_list: List[List[str]] = [self.get_radiative_surface(receiver_id).rad_file_content for
                                                   receiver_id in
                                                   radiative_surface_obj.get_viewed_surfaces_id_list()]
+        # Split the list of receiver rad str into batches
         receiver_rad_str_list_batches = split_into_batches(receiver_rad_str_list, num_receiver_per_file)
         # Generate the paths of the Radiance files
         name_emitter_rad_file, name_octree_file, name_receiver_rad_file, name_output_file = radiative_surface_obj.generate_rad_file_name()
-        path_emitter_rad_file = os.path.join(path_emitter_folder, name_emitter_rad_file + ".rad")
         # Generate emitter file
-        from_emitter_rad_str_to_rad_file(emitter_rad_str=emitter_rad_str, path_emitter_rad_file=path_emitter_rad_file)
-
-        if consider_octree:
-            # Generate the octree file
-            path_octree_file = from_receiver_rad_str_to_octree_file(receiver_rad_str_list=receiver_rad_str_list,
-                                                                    path_folder_octree=path_octree_folder,
-                                                                    name_octree_file=name_octree_file,
-                                                                    batch_size=num_receiver_per_file)
-        else:
-            path_octree_file = None
-
-        argument_list_to_add = []
+        path_emitter_rad_file = self.generate_emitter_file(emitter_rad_str=emitter_rad_str,
+                                                           path_emitter_folder=path_emitter_folder,
+                                                           name_emitter_rad_file=name_emitter_rad_file)
+        # Generate the octree file
+        path_octree_file = self.generate_octree(receiver_rad_str_list=receiver_rad_str_list,
+                                                path_octree_folder=path_octree_folder,
+                                                name_octree_file=name_octree_file,
+                                                num_receiver_per_octree=num_receiver_per_octree,
+                                                consider_octree=consider_octree)
         # Generate the Radiance files for each batch
-        for i, batch in enumerate(receiver_rad_str_list_batches):
-            path_receiver_rad_file = os.path.join(path_receiver_folder, name_receiver_rad_file + f"{i}.rad")
-            path_output_file = os.path.join(path_output_folder, name_output_file + f"{i}.txt")
-            # Generate the files
-            from_receiver_rad_str_to_rad_files(receiver_rad_str_list=batch,
-                                               path_receiver_rad_file=path_receiver_rad_file)
-
+        argument_list_to_add = []
+        for batch_index, batch_receiver_rad_str in enumerate(receiver_rad_str_list_batches):
+            # Generate the receiver files
+            path_receiver_rad_file = self.generate_receiver_files(
+                receiver_rad_str_list=batch_receiver_rad_str,
+                path_receiver_folder=path_receiver_folder,
+                name_receiver_rad_file=name_receiver_rad_file,
+                batch_index=batch_index)
+            # Generate the output file
+            path_output_file = self.get_path_output_file(path_output_folder=path_output_folder,
+                                                         name_output_file=name_output_file,
+                                                         batch_index=batch_index)
             # Add the Radiance argument to the list
             argument_list_to_add.append(
                 [path_emitter_rad_file, path_receiver_rad_file, path_output_file, path_octree_file])
 
         return argument_list_to_add
+
+    @staticmethod
+    def generate_emitter_file(emitter_rad_str: str, path_emitter_folder: str,
+                              name_emitter_rad_file: str) -> str:
+        """
+        Generate the emitter Radiance file.
+        :param emitter_rad_str: str, the Radiance string of the emitter.
+        :param path_emitter_folder: str, the folder path where the emitter Radiance files will be saved.
+        :param name_emitter_rad_file: str, the name of the emitter Radiance file.
+        :return path_emitter_rad_file: str, the path of the emitter Radiance file.
+        """
+        path_emitter_rad_file = os.path.join(path_emitter_folder, name_emitter_rad_file + ".rad")
+        from_emitter_rad_str_to_rad_file(emitter_rad_str=emitter_rad_str,
+                                         path_emitter_rad_file=path_emitter_rad_file)
+        return path_emitter_rad_file
+
+    @staticmethod
+    def generate_receiver_files(receiver_rad_str_list: List[str], path_receiver_folder: str,
+                                name_receiver_rad_file: str, batch_index: int):
+        """
+        Generate the receiver Radiance files.
+        :param receiver_rad_str_list: [str], the list of receiver PolyData string for Radiance files.
+        :param path_receiver_folder: str, the folder path where the receiver Radiance files will be saved.
+        :param name_receiver_rad_file: str, the name of the receiver Radiance file.
+        :param batch_index: int, the index of the batch.
+        :return path_receiver_rad_file: str, the path of the receiver Radiance file.
+        """
+        path_receiver_rad_file = os.path.join(path_receiver_folder,
+                                              name_receiver_rad_file + f"{batch_index}.rad")
+        # Generate the files
+        from_receiver_rad_str_to_rad_files(receiver_rad_str_list=receiver_rad_str_list,
+                                           path_receiver_rad_file=path_receiver_rad_file)
+        return path_receiver_rad_file
+
+    @staticmethod
+    def get_path_output_file(path_output_folder: str, name_output_file, batch_index: int) -> str:
+        """
+        Get the path of the output file.
+        :param path_output_folder: str, the folder path where the output Radiance files will be saved.
+        :param name_output_file: str, the name of the output Radiance file.
+        :param batch_index: int, the index of the batch.
+        :return path_output_file: str, the path of the output Radiance file.
+        """
+        path_output_file = os.path.join(path_output_folder, name_output_file + f"{batch_index}.txt")
+        return path_output_file
+
+    @staticmethod
+    def generate_octree(receiver_rad_str_list: List[str], path_octree_folder: str, name_octree_file: str,
+                        num_receiver_per_octree: int, consider_octree: bool = True) -> str:
+        """
+        Generate the octree file from the receiver PolyData.
+        :param receiver_rad_str_list: [str], the list of receiver PolyData string for Radiance files.
+        :param path_octree_folder: str, the folder path where the octree files will be saved.
+        :param name_octree_file: str, the name of the octree file.
+        :param num_receiver_per_octree: int, the number of receiver per rad file to convert to octree because
+            of Radiance limitations.
+        :param consider_octree: bool, if True, consider the octree file in the Radiance command.
+        """
+        if consider_octree:
+            # Generate the octree file
+            path_octree_file = from_receiver_rad_str_to_octree_file(
+                receiver_rad_str_list=receiver_rad_str_list,
+                path_folder_octree=path_octree_folder,
+                name_octree_file=name_octree_file,
+                num_receiver_per_octree=num_receiver_per_octree)
+        else:
+            path_octree_file = None
+
+        return path_octree_file
 
     @staticmethod
     def create_vf_simulation_folders(path_root_simulation_folder: str, overwrite: bool = False,

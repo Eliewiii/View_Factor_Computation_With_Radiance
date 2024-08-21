@@ -184,7 +184,7 @@ class RadiativeSurface:
         :return: str, the name of the receiver Radiance file.
         :return: str, the name of the output Radiance file.
         """
-        return self.name_emitter_file(), self.name_octree_file, self.name_receiver_file(), self.name_output_file()
+        return self.name_emitter_file(), self.name_octree_file(), self.name_receiver_file(), self.name_output_file()
 
     def name_emitter_file(self) -> str:
         """
@@ -196,7 +196,7 @@ class RadiativeSurface:
         """
         Generate the name of the octree file from the identifier without the extension.
         """
-        return f"{self.identifier}.oct"
+        return f"{self.identifier}"
 
     def name_receiver_file(self) -> str:
         """

@@ -63,7 +63,7 @@ def write_radiance_command_for_vf_computation(path_emitter_rad_file: str, path_r
     command = f'rfluxmtx -h- -ab 0 -c {nb_rays} ' + f'"!xform -I "{path_emitter_rad_file}"" ' + (
         f'"{path_receiver_rad_file}"')
     if path_octree_context:
-        command += f' "{path_octree_context}"'
+        command += f' -i "{path_octree_context}"'
     command += f' > "{path_output_file}"'
 
     return command
