@@ -16,6 +16,10 @@ points = np.array([[0., 0., 0.], [1., 0., 0.],[1.2, 0., 0.], [1., 0, 1.], [0., 0
 faces = np.array([[5, 0, 1, 2, 3,4]])
 polydata_obj_2 = PolyData(points, faces)
 
+points = np.array([[-1., 0., 0.], [0., -1., 0.],[1., 0., 0.], [0., 1., 0.]])
+faces = np.array([[4, 0, 1, 2, 3]])
+polydata_obj_3 = PolyData(points, faces)
+
 
 def test_compute_polydata_area():
     """
@@ -40,6 +44,8 @@ def test_compute_corners_from_existing_points():
     corners = compute_corners_from_existing_points(polydata_obj_1)
     print(corners)
     corners = compute_corners_from_existing_points(polydata_obj_2)
+    print(corners)
+    corners = compute_corners_from_existing_points(polydata_obj_3)
     print(corners)
 
 

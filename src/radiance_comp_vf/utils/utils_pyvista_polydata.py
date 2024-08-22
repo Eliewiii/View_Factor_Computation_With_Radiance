@@ -91,12 +91,14 @@ def compute_corners_from_existing_points(polydata_obj: PolyData) -> np.ndarray:
     else:
         reference_vector = z_axis
     # Compute the rotation axis and angle
-    rotation_axis = np.cross(normal, reference_vector)
-    rotation_angle = np.arccos(np.clip(np.dot(normal, reference_vector), -1.0, 1.0))
-    rotation_matrix = compute_rotation_matrix(rotation_axis, rotation_angle)
+    basis_vector1 = reference_vector - np.dot(reference_vector, normal) * normal
+    basis_vector1 = basis_vector1 / np.linalg.norm(basis_vector1)
+    basis_vector2 = np.cross(normal, basis_vector1)
+    transformation_matrix = create_transformation_matrix(normal,basis_vector1, basis_vector2)
     # Rotate the points to align the surface with the xy-plane in the local coordinate system
     points = polydata_obj.points
-    local_points = (rotation_matrix @ points.T).T
+    local_points = points @ transformation_matrix
+    print(local_points)
     # Get the minimum and maximum u and v values of the local points
     min_u = np.min(local_points[:, 0])
     max_u = np.max(local_points[:, 0])
@@ -112,23 +114,25 @@ def compute_corners_from_existing_points(polydata_obj: PolyData) -> np.ndarray:
     # Select unique points based on priority
 
     min_u_point = select_unique_point(potential_u_min_points, [],
-                                      to_be_selected_points=[potential_v_min_points, potential_v_max_points])
+                                      to_be_selected_points=[potential_v_min_points, potential_v_max_points,
+                                                             potential_u_max_points])
     max_u_point = select_unique_point(potential_u_max_points, [min_u_point],
                                       to_be_selected_points=[potential_v_min_points, potential_v_max_points])
-    min_v_point = select_unique_point(potential_v_min_points, [min_u_point, max_u_point],
-                                      to_be_selected_points=[])
-    max_v_point = select_unique_point(potential_v_max_points, [min_u_point, max_u_point, min_v_point],
+    max_v_point = select_unique_point(potential_v_max_points, [min_u_point, max_u_point],
+                                      to_be_selected_points=[potential_u_max_points])
+    min_v_point = select_unique_point(potential_v_min_points, [min_u_point, max_u_point, max_v_point],
                                       to_be_selected_points=[])
 
     # Corners are the combinations of these extreme points
     corners_local = np.array([
-        min_u_point,  # Min u, corresponding v
         max_u_point,  # Max u, corresponding v
+        min_u_point,  # Min u, corresponding v
         max_v_point,  # Max v, corresponding u
         min_v_point  # Min v, corresponding u
     ])
+    print (f"corners_local: {corners_local}")
     # Transform the corners back to the original coordinate system
-    corners_original = (rotation_matrix.T @ corners_local.T).T
+    corners_original = corners_local @ np.linalg.inv(transformation_matrix)
 
     return corners_original
 
@@ -137,30 +141,40 @@ def compute_corners_from_existing_points(polydata_obj: PolyData) -> np.ndarray:
 # Helper functions
 ###
 
-def compute_rotation_matrix(axis, angle):
-    """
-    Computes a rotation matrix given an axis and angle using Rodrigues' rotation formula.
+# def compute_rotation_matrix(axis, angle):
+#     """
+#     Computes a rotation matrix given an axis and angle using Rodrigues' rotation formula.
+#
+#     Args:
+#         axis (numpy.ndarray): The rotation axis.
+#         angle (float): The rotation angle in radians.
+#
+#     Returns:
+#         numpy.ndarray: The 3x3 rotation matrix.
+#     """
+#     axis = axis / np.linalg.norm(axis)  # Normalize the axis
+#     cos_angle = np.cos(angle)
+#     sin_angle = np.sin(angle)
+#     ux, uy, uz = axis
+#
+#     return np.array([
+#         [cos_angle + ux ** 2 * (1 - cos_angle), ux * uy * (1 - cos_angle) - uz * sin_angle,
+#          ux * uz * (1 - cos_angle) + uy * sin_angle],
+#         [uy * ux * (1 - cos_angle) + uz * sin_angle, cos_angle + uy ** 2 * (1 - cos_angle),
+#          uy * uz * (1 - cos_angle) - ux * sin_angle],
+#         [uz * ux * (1 - cos_angle) - uy * sin_angle, uz * uy * (1 - cos_angle) + ux * sin_angle,
+#          cos_angle + uz ** 2 * (1 - cos_angle)]
+#     ])
 
-    Args:
-        axis (numpy.ndarray): The rotation axis.
-        angle (float): The rotation angle in radians.
 
-    Returns:
-        numpy.ndarray: The 3x3 rotation matrix.
-    """
-    axis = axis / np.linalg.norm(axis)  # Normalize the axis
-    cos_angle = np.cos(angle)
-    sin_angle = np.sin(angle)
-    ux, uy, uz = axis
+def create_transformation_matrix(normal, basis1, basis2):
+    # Ensure the normal is pointing in the direction you want (e.g., z-direction)
+    normal = normal / np.linalg.norm(normal)
 
-    return np.array([
-        [cos_angle + ux ** 2 * (1 - cos_angle), ux * uy * (1 - cos_angle) - uz * sin_angle,
-         ux * uz * (1 - cos_angle) + uy * sin_angle],
-        [uy * ux * (1 - cos_angle) + uz * sin_angle, cos_angle + uy ** 2 * (1 - cos_angle),
-         uy * uz * (1 - cos_angle) - ux * sin_angle],
-        [uz * ux * (1 - cos_angle) - uy * sin_angle, uz * uy * (1 - cos_angle) + ux * sin_angle,
-         cos_angle + uz ** 2 * (1 - cos_angle)]
-    ])
+    # Create a matrix with basis vectors as columns
+    transformation_matrix = np.column_stack([basis1, basis2, normal])
+
+    return transformation_matrix
 
 
 def select_unique_point(potential_points: List[np.array], selected_points: np.array,
@@ -197,12 +211,31 @@ def get_occurrences(to_be_selected_points: List[np.array], selected_points_array
     :return: int, the number of occurrences and the minimum number of options left of a surface with
         the occurence.
     """
-    if to_be_selected_points is [[]]:
+    if len(to_be_selected_points) == 0:
         return 0, 0
-    occurrence, min_option_left = 0, 0
+    occurrence, min_option_left = 0, max([len(array) for array in to_be_selected_points])
     for array in to_be_selected_points:
-        if np.allclose(array, point):
+        if np.sum(np.all(array == point, axis=1)) > 0:
             occurrence += 1
-            if np.intersect1d(array, selected_points_array) > min_option_left:
-                min_option_left = np.intersect1d(array, selected_points_array)
+            if len(array) - nb_intersection(array, selected_points_array) < min_option_left:
+                min_option_left = len(array) - nb_intersection(array, selected_points_array)
     return occurrence, min_option_left
+
+
+def nb_intersection(array1: np.array, array2: np.array) -> int:
+    """
+    Compute the number of intersections between two arrays.
+    :param array1: np.array, the first array.
+    :param array2: np.array, the second array.
+    :return: int, the number of intersections.
+    """
+    # Convert rows to sets of tuples for intersection
+    array1_set = set(map(tuple, array1))
+    array2_set = set(map(tuple, array2))
+
+    # Find common rows
+    common_rows = array1_set.intersection(array2_set)
+
+    # Count of common rows
+    count_common_rows = len(common_rows)
+    return count_common_rows
