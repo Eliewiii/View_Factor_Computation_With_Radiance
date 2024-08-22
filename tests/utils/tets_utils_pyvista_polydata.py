@@ -12,9 +12,10 @@ points = np.array([[0., 0., 0.], [1., 0., 0.], [1., 1., 0.], [0., 1., 0.]])
 faces = np.array([[4, 0, 1, 2, 3]])
 polydata_obj_1 = PolyData(points, faces)
 
-points = np.array([[0., 0., 0.], [1., 0., 0.], [1., 0, 1.], [0., 0., 1.]])
-faces = np.array([[4, 0, 1, 2, 3]])
+points = np.array([[0., 0., 0.], [1., 0., 0.],[1.2, 0., 0.], [1., 0, 1.], [0., 0., 1.]])
+faces = np.array([[5, 0, 1, 2, 3,4]])
 polydata_obj_2 = PolyData(points, faces)
+
 
 def test_compute_polydata_area():
     """
@@ -37,7 +38,7 @@ def test_compute_corners_from_existing_points():
     Test the compute_corners_from_existing_points function.
     """
     corners = compute_corners_from_existing_points(polydata_obj_1)
-    print (corners)
+    print(corners)
     corners = compute_corners_from_existing_points(polydata_obj_2)
     print(corners)
 
@@ -46,6 +47,25 @@ def test_occurrences():
     """
     Test the compute_polydata_area function.
     """
-    array = np.array([[1, 2, 3], [1, 4, 3], [2, 2, 3], [1, 2, 3],[1, 2, 3]])
-    counts = np.sum(np.all(array == np.array([[1,2,3]]), axis=1))
+    array = np.array([[1, 2, 3], [1, 4, 3], [2, 2, 3], [1, 2, 3], [1, 2, 3]])
+    counts = np.sum(np.all(array == np.array([[1, 2, 3]]), axis=1))
     assert counts == 3
+
+
+def test_intersection():
+    """
+    Test the compute_polydata_area function.
+    """
+    array1 = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+    array2 = np.array([[4, 5, 6], [10, 11, 12], [7, 8, 9], [13, 14, 15]])
+
+    # Convert rows to sets of tuples for intersection
+    array1_set = set(map(tuple, array1))
+    array2_set = set(map(tuple, array2))
+
+    # Find common rows
+    common_rows = array1_set.intersection(array2_set)
+
+    # Count of common rows
+    count_common_rows = len(common_rows)
+    print("Number of common vertices:", count_common_rows)
