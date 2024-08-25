@@ -75,3 +75,13 @@ def test_intersection():
     # Count of common rows
     count_common_rows = len(common_rows)
     print("Number of common vertices:", count_common_rows)
+
+def test_call_vertex_and_faces():
+    """
+    Test the compute_polydata_area function.
+    """
+    points = np.array([[0., 0., 0.], [1., 0., 0.], [1., 1., 0.], [0., 1., 0.]])
+    faces = np.array([[4, 0, 1, 2, 3],[4, 0, 1, 2, 3]])
+    polydata_obj = PolyData(points, faces)
+    print(polydata_obj.points)
+    print(polydata_obj.faces)

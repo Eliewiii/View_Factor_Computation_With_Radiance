@@ -11,3 +11,5 @@ from .utils_batches import *
 from .utils_random_rectangle_generation import generate_random_rectangles
 from .utils_objects_wrapper import *
 from .utils_pyvista_polydata import *
+from .utils_adjustements_surface_with_holes import *
+from .utils_2d_projection import *
