@@ -8,6 +8,24 @@ from src.radiance_comp_vf.utils import (contour_surface_with_hole, contour_surfa
                                         compute_area_and_centroid_of_polydata)
 
 
+def test_centroid_of_surface():
+    """
+
+    :return:
+    """
+    # Example usage:
+    surface = [
+        [0, 0, 0],
+        [10, 0, 0],
+        [10, 10, 10],
+        [0, 10, 10]
+    ]
+    polydata_obj = polydata_from_vertices(surface)
+
+    area,centroid =compute_area_and_centroid_of_polydata(polydata_obj)
+    print("")
+    print(area,centroid)
+
 def test_centroid_of_surface_with_hole():
     """
 
@@ -21,13 +39,15 @@ def test_centroid_of_surface_with_hole():
         [0, 10, 10]
     ]
     hole = [
-        [4, 4, 4],
-        [6, 4, 4],
-        [6,6, 6],
-        [4, 6, 6]
+        [3, 3, 3],
+        [6, 3, 3],
+        [6, 6, 6],
+        [3, 6, 6]
     ]
-    polydata_obj = polydata_from_vertices(surface)
+    # Get the contoured surface with multiple holes
+    contoured_surface = contour_surface_with_hole(surface, hole)
+    polydata_obj = polydata_from_vertices(contoured_surface)
 
-    area,centroid =compute_area_and_centroid_of_polydata(polydata_obj)
+    area, centroid = compute_area_and_centroid_of_polydata(polydata_obj)
     print("")
-    print(area,centroid)
+    print(area, centroid)

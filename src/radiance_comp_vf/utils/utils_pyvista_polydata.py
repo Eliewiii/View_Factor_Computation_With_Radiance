@@ -4,7 +4,56 @@ Additional utility functions for working with PyVista PolyData objects.
 from pyvista import PolyData
 import numpy as np
 
+from shapely.geometry import Polygon
+
 from typing import List, Tuple, Union
+
+
+def polydata_from_vertices(vertices: np.ndarray) -> PolyData:
+    """
+    Create a PyVista PolyData object from vertices and faces.
+    :param vertices: np.ndarray, the vertices of the PolyData object.
+    :return: pv.PolyData, the PolyData object.
+    """
+    faces = np.array([[len(vertices)] + list(range(len(vertices)))])
+    return PolyData(vertices, faces)
+
+
+def polydata_to_shapely(polydata):
+    # Extract points from the PolyData object
+    points = polydata.points
+
+    # Assuming there is only one face in the PolyData
+    face = polydata.faces.reshape(-1, polydata.faces[0] + 1)[0,
+           1:]  # Extracting the first face and ignoring the first number (which is the number of vertices in the face)
+
+    # Extract the points corresponding to the face
+    face_points = points[face]
+
+    # Convert to a Shapely Polygon object
+    polygon = Polygon(face_points)
+
+    return polygon
+
+def get_faces_list_of_vertices(polydata_obj: PolyData) -> List[List[float]]:
+    """
+    Get the list of vertices for each face of the PolyData object.
+    :param polydata_obj: pv.PolyData, the PolyData object.
+    :return list_of_vertices: List of vertices for each face.
+    """
+    # Extract points from the PolyData object
+    points = polydata_obj.points
+    # Extract the faces
+    faces = polydata_obj.faces
+    face_list=[]
+    index = 0
+    while index<len(faces):
+        num_vertices = faces[index]
+        face_list.append(faces[index+1:index+num_vertices+1])
+        index += num_vertices+1
+    list_of_vertices = [[points[pt_index] for pt_index in face] for face in face_list]
+
+    return list_of_vertices
 
 
 def compute_polydata_area(polydata_obj: PolyData) -> float:
@@ -94,7 +143,7 @@ def compute_corners_from_existing_points(polydata_obj: PolyData) -> np.ndarray:
     basis_vector1 = reference_vector - np.dot(reference_vector, normal) * normal
     basis_vector1 = basis_vector1 / np.linalg.norm(basis_vector1)
     basis_vector2 = np.cross(normal, basis_vector1)
-    transformation_matrix = create_transformation_matrix(normal,basis_vector1, basis_vector2)
+    transformation_matrix = create_transformation_matrix(normal, basis_vector1, basis_vector2)
     # Rotate the points to align the surface with the xy-plane in the local coordinate system
     points = polydata_obj.points
     local_points = points @ transformation_matrix
@@ -130,7 +179,7 @@ def compute_corners_from_existing_points(polydata_obj: PolyData) -> np.ndarray:
         max_v_point,  # Max v, corresponding u
         min_v_point  # Min v, corresponding u
     ])
-    print (f"corners_local: {corners_local}")
+    print(f"corners_local: {corners_local}")
     # Transform the corners back to the original coordinate system
     corners_original = corners_local @ np.linalg.inv(transformation_matrix)
 
