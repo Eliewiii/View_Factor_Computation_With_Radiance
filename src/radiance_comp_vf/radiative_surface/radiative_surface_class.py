@@ -7,6 +7,7 @@ import os
 import os
 
 from copy import deepcopy
+from numpy import ndarray
 from pyvista import PolyData
 from typing import List
 
@@ -25,6 +26,8 @@ class RadiativeSurface:
         # Geometry
         self.polydata_geometry: PolyData = None
         self.area: float = None
+        self.centroid: ndarray = None
+        self.corner_vertices: List[ndarray] = None
         #
         self._num_viewed_surfaces: int = 0
         self._viewed_surfaces_dict: dict = {}
@@ -73,6 +76,19 @@ class RadiativeSurface:
         # Set the geometry and radiative properties
 
         # Make the Radiance string
+
+    @classmethod
+    def from_surface_with_wholes(cls, identifier: str,geometry_array, whole_geometry_array_list, hb_identifier: str=None):
+        """
+        Convert a PolyData with wholes to a RadiativeSurface object.
+        :param identifier: str, the identifier of the object.
+        :param polydata: PolyData, the polydata to convert.
+        """
+        # Convcert the geometry array to
+
+        radiative_surface_obj = cls(identifier)
+
+        return radiative_surface_obj
 
     @classmethod
     def from_polydata(cls, identifier: str, polydata: PolyData):

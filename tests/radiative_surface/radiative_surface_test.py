@@ -43,8 +43,8 @@ class TestRadiativeSurface:
         assert radiative_surface.identifier == "identifier"
         assert radiative_surface.hb_identifier is None
         assert radiative_surface.polydata_geometry is None
-        assert radiative_surface.viewed_surfaces_id_list == []
-        assert radiative_surface.viewed_surfaces_view_factor_list == []
+        assert radiative_surface._viewed_surfaces_id_list == []
+        assert radiative_surface._viewed_surfaces_view_factor_list == []
         assert radiative_surface.emissivity is None
         assert radiative_surface.reflectivity is None
         assert radiative_surface.transmissivity is None
