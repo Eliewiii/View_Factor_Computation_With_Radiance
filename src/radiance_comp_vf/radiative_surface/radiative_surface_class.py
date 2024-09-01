@@ -12,7 +12,7 @@ from pyvista import PolyData
 from typing import List
 
 from ..utils import from_polydata_to_dot_rad_str, generate_random_rectangles, read_ruflumtx_output_file, \
-    compute_polydata_area
+    compute_polydata_area,from_polydata_to_vertex_list
 
 
 class RadiativeSurface:
@@ -24,7 +24,7 @@ class RadiativeSurface:
         self.identifier: str = identifier
         self.hb_identifier: str = None
         # Geometry
-        self.polydata_geometry: PolyData = None
+        self.vertex_list: ndarray = None
         self.area: float = None
         self.centroid: ndarray = None
         self.corner_vertices: List[ndarray] = None
@@ -50,7 +50,7 @@ class RadiativeSurface:
     def __deepcopy__(self, memo={}):
         new_radiative_surface = RadiativeSurface(self.identifier)
         new_radiative_surface.hb_identifier = self.hb_identifier
-        new_radiative_surface.polydata_geometry = deepcopy(self.polydata_geometry, memo)
+        new_radiative_surface.vertex_list = deepcopy(self.vertex_list, memo)
         new_radiative_surface.viewed_surfaces_id_list = deepcopy(self.viewed_surfaces_id_list, memo)
         new_radiative_surface.viewed_surfaces_view_factor_list = deepcopy(
             self.viewed_surfaces_view_factor_list, memo)
@@ -84,7 +84,10 @@ class RadiativeSurface:
         :param identifier: str, the identifier of the object.
         :param polydata: PolyData, the polydata to convert.
         """
-        # Convcert the geometry array to
+        # Convert the geometry array with wholes to a vertex list
+
+        # Compute the area, centroid and corner vertices
+
 
         radiative_surface_obj = cls(identifier)
 
@@ -100,7 +103,8 @@ class RadiativeSurface:
         if not isinstance(polydata, PolyData):
             raise ValueError(f"The polydata must be a PolyData object, not {type(polydata)}.")
         radiative_surface_obj = cls(identifier)
-        radiative_surface_obj.polydata_geometry = polydata
+        vertex_list = from_polydata_to_vertex_list(polydata)
+        radiative_surface_obj.vertex_list = vertex_list
         radiative_surface_obj.rad_file_content = from_polydata_to_dot_rad_str(polydata, identifier)
         radiative_surface_obj.area = compute_polydata_area(polydata_obj=polydata)
 

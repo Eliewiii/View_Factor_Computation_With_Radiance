@@ -18,6 +18,13 @@ def polydata_from_vertices(vertices: np.ndarray) -> PolyData:
     faces = np.array([[len(vertices)] + list(range(len(vertices)))])
     return PolyData(vertices, faces)
 
+def from_polydata_to_vertex_list(polydata: PolyData) -> List[List[float]]:
+    """
+    Convert a PyVista PolyData object to a list of vertices.
+    :param polydata: pv.PolyData, the PolyData object.
+    :return: List[List[float]], the list of vertices.
+    """
+    return get_faces_list_of_vertices(polydata)
 
 def polydata_to_shapely(polydata):
     # Extract points from the PolyData object

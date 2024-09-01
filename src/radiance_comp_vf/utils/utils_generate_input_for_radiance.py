@@ -112,6 +112,47 @@ def from_rad_str_list_to_octree_rad_file(rad_str_list: List[str], path_rad_file:
         f.write(rad_file_content)
 
 
+def from_vertex_list_to_rad_str(vertices: List[List[float]], identifier: str) -> str:
+    """
+    Convert a list of vertices to a Radiance string to be saved in a .rad file.
+    :param vertices: List[List[float]], the list of vertices.
+    :param identifier: str, the identifier of the object.
+    :return: str, the Radiance string.
+    """
+    rad_file_content = ""
+    rad_file_content += f"void glow sur_{identifier}" + "\n"
+    rad_file_content += f"0" + "\n"
+    rad_file_content += f"0" + "\n"
+    rad_file_content += f"4 1 1 1 0" + "\n"
+    rad_file_content += f"sur_{identifier} polygon surface.{identifier}" + "\n"
+    rad_file_content += f"0" + "\n"
+    rad_file_content += f"0" + "\n"
+    nb_coords = len(vertices) * 3
+    rad_file_content += (f"{nb_coords}")
+    for v in vertices:
+        rad_file_content += f" {v[0]} {v[1]} {v[2]}\n"
+
+    return rad_file_content
+
+def from_vertex_list_to_rad_str_to_test(vertices: List[List[float]], identifier: str) -> str:
+    """
+    Convert a list of vertices to a Radiance string to be saved in a .rad file.
+    :param vertices: List[List[float]], the list of vertices.
+    :param identifier: str, the identifier of the object.
+    :return: str, the Radiance string.
+    """
+    rad_file_content = ""
+    rad_file_content += f"void polygon surface.{identifier}" + "\n"
+    rad_file_content += f"0" + "\n"
+    rad_file_content += f"0" + "\n"
+    nb_coords = len(vertices) * 3
+    rad_file_content += (f"{nb_coords}")
+    for v in vertices:
+        rad_file_content += f" {v[0]} {v[1]} {v[2]}\n"
+
+    return rad_file_content
+
+
 def from_polydata_to_dot_rad_str(polydata: PolyData, identifier: str) -> str:
     """
     Convert a PolyData to a Radiance string to be saved in a .rad file.
