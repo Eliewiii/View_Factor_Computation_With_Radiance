@@ -5,6 +5,7 @@ Class that manages the whole LWR simulation, especially the RadiativeSurface obj
 from .radiative_surface_manager_class import RadiativeSurfaceManager
 
 
+
 class LWRManager(RadiativeSurfaceManager):
     """
     Class that manages the whole LWR simulation, especially the RadiativeSurface objects.

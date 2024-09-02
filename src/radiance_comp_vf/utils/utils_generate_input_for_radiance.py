@@ -134,6 +134,7 @@ def from_vertex_list_to_rad_str(vertices: List[List[float]], identifier: str) ->
 
     return rad_file_content
 
+
 def from_vertex_list_to_rad_str_to_test(vertices: List[List[float]], identifier: str) -> str:
     """
     Convert a list of vertices to a Radiance string to be saved in a .rad file.

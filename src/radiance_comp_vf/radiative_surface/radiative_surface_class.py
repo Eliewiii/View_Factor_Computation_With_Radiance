@@ -11,8 +11,8 @@ from numpy import ndarray
 from pyvista import PolyData
 from typing import List
 
-from ..utils import from_polydata_to_dot_rad_str, generate_random_rectangles, read_ruflumtx_output_file, \
-    compute_polydata_area,from_polydata_to_vertex_list
+from ..utils import from_vertex_list_to_rad_str, generate_random_rectangles, read_ruflumtx_output_file, \
+    compute_polydata_area, from_polydata_to_vertex_list
 
 
 class RadiativeSurface:
@@ -78,16 +78,21 @@ class RadiativeSurface:
         # Make the Radiance string
 
     @classmethod
-    def from_surface_with_wholes(cls, identifier: str,geometry_array, whole_geometry_array_list, hb_identifier: str=None):
+    def from_vertex_list(cls, identifier: str, vertex_list: List[List[float]],
+                         whole_list: List[List[List[float]]] = [],
+                         hb_identifier: str = None) -> 'RadiativeSurface':
         """
         Convert a PolyData with wholes to a RadiativeSurface object.
         :param identifier: str, the identifier of the object.
-        :param polydata: PolyData, the polydata to convert.
+        :param vertex_list: List[List[float]], the list of vertices of the object.
+        :param whole_list: List[List[List[float]]], the list of vertices of the wholes of the object.
+        :param hb_identifier: str, the identifier of the Honeybee object if needed (in case the hb_identifier
+            cannot be used as the identifier).
+
         """
         # Convert the geometry array with wholes to a vertex list
 
         # Compute the area, centroid and corner vertices
-
 
         radiative_surface_obj = cls(identifier)
 
@@ -105,7 +110,8 @@ class RadiativeSurface:
         radiative_surface_obj = cls(identifier)
         vertex_list = from_polydata_to_vertex_list(polydata)
         radiative_surface_obj.vertex_list = vertex_list
-        radiative_surface_obj.rad_file_content = from_polydata_to_dot_rad_str(polydata, identifier)
+        radiative_surface_obj.rad_file_content = from_vertex_list_to_rad_str(vertices=vertex_list,
+                                                                             identifier=identifier)
         radiative_surface_obj.area = compute_polydata_area(polydata_obj=polydata)
 
         return radiative_surface_obj
@@ -240,7 +246,8 @@ class RadiativeSurface:
         attribute.
         :param path_output_folder:
         """
-        list_output_files = [f for f in os.listdir(path_output_folder) if f.startswith(self.name_output_file())]
+        list_output_files = [f for f in os.listdir(path_output_folder) if
+                             f.startswith(self.name_output_file())]
         for output_file in list_output_files:
             if output_file.startswith(self.name_output_file()):
                 self._viewed_surfaces_view_factor_list.extend(
