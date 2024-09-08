@@ -35,10 +35,16 @@ creating the RAYPATH variable to the lib folder (C:\Radiance\lib).
 
 ## Installation
 
-You can install the package directly from GitHub using `pip`:
+You can install the package directly from GitHub using `pip` if you have git installed:
 
 ```bash
 pip install git+https://github.com/Eliewiii/View_Factor_Computation_With_Radiance.git
+```
+
+Or by pointing to the tar.gz file:
+
+```bash
+pip install https://github.com/Eliewiii/View_Factor_Computation_With_Radiance/archive/refs/tags/last_release_tag.tar.gz
 ```
 
 ## Usage
