@@ -227,7 +227,7 @@ class RadiativeSurfaceManager:
         Check if all the viewed surfaces of the RadiativeSurface objects are in the manager.
         """
         for radiative_surface_obj in self._radiative_surface_dict.values():
-            for viewed_surface_id in radiative_surface_obj.get_viewed_surfaces_id_list():
+            for viewed_surface_id in radiative_surface_obj.viewed_surfaces_id_list:
                 if viewed_surface_id not in self._radiative_surface_dict:
                     raise ValueError(
                         f"The viewed surface {viewed_surface_id} of the surface {radiative_surface_obj.identifier} "
@@ -298,13 +298,13 @@ class RadiativeSurfaceManager:
         :param consider_octree: bool, if True, consider the octree file in the Radiance command.
         """
         # Check if the surface has viewed surfaces aka simulation is needed
-        if len(radiative_surface_obj.get_viewed_surfaces_id_list()) == 0:
+        if len(radiative_surface_obj.viewed_surfaces_id_list()) == 0:
             return [[]]
         # Get the rad_str of the emitter and receivers
         emitter_rad_str = radiative_surface_obj.rad_file_content
         receiver_rad_str_list: List[List[str]] = [self.get_radiative_surface(receiver_id).rad_file_content for
                                                   receiver_id in
-                                                  radiative_surface_obj.get_viewed_surfaces_id_list()]
+                                                  radiative_surface_obj.viewed_surfaces_id_list()]
         # Split the list of receiver rad str into batches
         receiver_rad_str_list_batches = split_into_batches(receiver_rad_str_list, num_receiver_per_file)
         # Generate the paths of the Radiance files
@@ -520,7 +520,7 @@ class RadiativeSurfaceManager:
         # the code more complex, and not necessarily faster due to additional conditions to check.
 
         for surface_id_1, radiative_surface_obj_1 in self._radiative_surface_dict.items():
-            vf_list = radiative_surface_obj_1.get_viewed_surfaces_view_factor_list()
+            vf_list = radiative_surface_obj_1.viewed_surfaces_view_factor_list()
             viewed_surfaces_id_list = radiative_surface_obj_1.get_viewed_surfaces_id_list()
             for surface_id_2, vf_1_2 in zip(viewed_surfaces_id_list, vf_list):
                 radiative_surface_obj_2 = self.get_radiative_surface(surface_id_2)

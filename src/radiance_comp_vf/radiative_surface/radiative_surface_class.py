@@ -189,6 +189,10 @@ class RadiativeSurface:
         return list(self._viewed_surfaces_id_list)
 
     @property
+    def viewed_surfaces_view_factor_list(self):
+        return list(self._viewed_surfaces_view_factor_list)
+
+    @property
     def vf_tot(self):
         return self._vf_tot
 
