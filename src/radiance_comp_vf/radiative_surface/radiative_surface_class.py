@@ -4,18 +4,18 @@ Class of surfaces for radiative simulations
 
 import os
 
-import os
-
 from copy import deepcopy
 from numpy import ndarray
 from pyvista import PolyData
 from typing import List
 
 from geoplus import compute_planar_surface_area_and_centroid, contour_planar_surface_with_holes, \
-    compute_planar_surface_corners_from_existing_points
+    compute_planar_surface_corners
 
 from ..utils import from_vertex_list_to_rad_str, generate_random_rectangles, read_ruflumtx_output_file, \
     compute_polydata_area, from_polydata_to_vertex_list
+
+FORBIDDEN_CHARACTERS_NAME_SURFACE_RADIANCE = [' ', '-', '.', ',', ';', ':']
 
 
 class RadiativeSurface:
@@ -24,57 +24,47 @@ class RadiativeSurface:
     """
 
     def __init__(self, identifier: str):
-        self.identifier: str = identifier  # Identifier, adjusted by the setter
-        self.origin_identifier: str = identifier
+        self._identifier: str = self.adjust_identifier_for_radiance(identifier)  # Identifier, adjusted by the setter
+        self._origin_identifier: str = identifier
         # Geometry
-        self.vertex_list: ndarray = None
-        self.area: float = None
-        self.centroid: List[float] = None
-        self.corner_vertices: List[List[float]] = None
+        self._vertex_list: List[List[float]] = None
+        self._area: float = None
+        self._centroid: List[float] = None
+        self._corner_vertices: List[List[float]] = None
         #
         self._num_viewed_surfaces: int = 0
         self._viewed_surfaces_dict: dict = {}
         self._viewed_surfaces_id_list: List = []
         self._viewed_surfaces_view_factor_list: List = []
         # VF properties
-        self.vf_surface: float = 0.
-        self.vf_ground: float = 0.
-        self.vf_sky: float = 0.
+        self.vf_total: float = 0.  # Total view factor of the surface
+        self._vf_to_surfaces: float = 0.  # Total view factor of the other surfaces
+        self._vf_ground: float = 0.
+        self._vf_sky: float = 0.
+        self._vf_air: float = 0.
         # Radiative properties
-        self.emissivity: float = None
-        self.reflectivity: float = None
-        self.transmissivity: float = None
+        self._emissivity: float = None
+        self._reflectivity: float = None
+        self._transmissivity: float = None
         # Preprocessed data for Radiance
-        self.rad_file_content: str = None
+        self._rad_file_content: str = None
 
     def __str__(self):
-        return f"RadiativeSurface(identifier='{self.identifier}')"
+        return f"RadiativeSurface(identifier='{self._identifier}')"
 
     def __deepcopy__(self, memo={}):
-        new_radiative_surface = RadiativeSurface(self.identifier)
-        new_radiative_surface.origin_identifier = self.origin_identifier
-        new_radiative_surface.vertex_list = deepcopy(self.vertex_list, memo)
-        new_radiative_surface.viewed_surfaces_id_list = deepcopy(self.viewed_surfaces_id_list, memo)
+        new_radiative_surface = RadiativeSurface(self._identifier)
+        new_radiative_surface.origin_identifier = self._origin_identifier
+        new_radiative_surface.vertex_list = deepcopy(self._vertex_list, memo)
+        new_radiative_surface.viewed_surfaces_id_list = deepcopy(self._viewed_surfaces_id_list, memo)
         new_radiative_surface.viewed_surfaces_view_factor_list = deepcopy(
-            self.viewed_surfaces_view_factor_list, memo)
-        new_radiative_surface.emissivity = self.emissivity
-        new_radiative_surface.reflectivity = self.reflectivity
-        new_radiative_surface.transmissivity = self.transmissivity
-        new_radiative_surface.rad_file_content = self.rad_file_content
+            self._viewed_surfaces_view_factor_list, memo)
+        new_radiative_surface.emissivity = self._emissivity
+        new_radiative_surface.reflectivity = self._reflectivity
+        new_radiative_surface.transmissivity = self._transmissivity
+        new_radiative_surface.rad_file_content = self._rad_file_content
 
         return new_radiative_surface
-
-    @staticmethod
-    def adjust_identifier_for_radiance(identifier: str) -> str:
-        """
-        Adjust the identifier for Radiance.
-        Replace all the forbidden characters by underscores.
-        This function might require adjustments when new forbidden characters are found.
-        :param identifier: str, the identifier to adjust.
-        """
-        return identifier.replace(' ', '_').replace('-', '_').replace(
-            '.', '_').replace(',', '_').replace(';', '_').replace(
-            ":", "_")
 
     @classmethod
     def from_hb_face_object(cls, hb_face_object):
@@ -109,6 +99,26 @@ class RadiativeSurface:
         return radiative_surface_obj
 
     @classmethod
+    def from_vertex_list_with_radiative_properties(cls, identifier: str, vertex_list: List[List[float]],
+                                                   hole_list: List[List[List[float]]] = [],
+                                                   emissivity: float = 0., reflectivity: float = 0.,
+                                                   transmissivity: float = 0.):
+        """
+        Convert a PolyData with wholes to a RadiativeSurface object.
+        :param identifier: str, the identifier of the object.
+        :param vertex_list: List[List[float]], the list of vertices of the object.
+        :param hole_list: List[List[List[float]]], the list of vertices of the holes in the geometry.
+        :param emissivity: float, the emissivity of the surface.
+        :param reflectivity: float, the reflectivity of the surface.
+        :param transmissivity: float, the transmissivity of the surface.
+        """
+        radiative_surface_obj = cls.from_vertex_list(identifier=identifier, vertex_list=vertex_list,
+                                                     hole_list=hole_list)
+        radiative_surface_obj.set_radiative_properties(emissivity=emissivity, reflectivity=reflectivity,
+                                                       transmissivity=transmissivity)
+        return radiative_surface_obj
+
+    @classmethod
     def from_polydata(cls, identifier: str, polydata: PolyData):
         """
         Convert a PolyData to a RadiativeSurface object.
@@ -126,27 +136,129 @@ class RadiativeSurface:
 
         return radiative_surface_obj
 
+    # =========================================================
+    # Properties
+    # =========================================================
     @property
     def identifier(self):
         return self._identifier
 
-    @identifier.setter
-    def identifier(self, value):
-        if not isinstance(value, str):
-            raise ValueError("The identifier must be a string.")
-        if ' ' in value:
-            raise ValueError("Identifier cannot contain spaces.")
-        self._identifier = self.adjust_identifier_for_radiance(value)
+    @staticmethod
+    def adjust_identifier_for_radiance(identifier: str) -> str:
+        """
+        Adjust the identifier for Radiance.
+        Replace all the forbidden characters by underscores.
+        This function might require adjustments when new forbidden characters are found.
+        :param identifier: str, the identifier to adjust.
+        """
 
+        adjusted_identifier = identifier
+        for forbidden_character in FORBIDDEN_CHARACTERS_NAME_SURFACE_RADIANCE:
+            adjusted_identifier = adjusted_identifier.replace(forbidden_character, '_')
+        if adjusted_identifier.replace("_", "") == "":
+            raise ValueError(f"The identifier '{identifier}' must contain at least one valid character.")
+
+        return adjusted_identifier
+
+    @property
+    def origin_identifier(self):
+        return self._origin_identifier
+
+    @property
+    def vertex_list(self):
+        return deepcopy(self._vertex_list)
+
+    @property
+    def area(self):
+        return self._area
+
+    @property
+    def centroid(self):
+        return deepcopy(self._centroid)
+
+    @property
+    def corner_vertices(self):
+        return deepcopy(self._corner_vertices)
+
+    @property
+    def num_viewed_surfaces(self):
+        return self._num_viewed_surfaces
+
+    @property
+    def viewed_surfaces_id_list(self):
+        return list(self._viewed_surfaces_id_list)
+
+    @property
+    def vf_tot(self):
+        return self._vf_tot
+
+    @property
+    def vf_to_surfaces(self):
+        return self._vf_to_surfaces
+
+    @property
+    def vf_ground(self):
+        return self._vf_to_surfaces
+
+    @property
+    def vf_sky(self):
+        return self.vf_to_surfaces
+
+    @property
+    def vf_air(self):
+        return self._vf_air
+
+    @property
+    def emissivity(self):
+        return self._emissivity
+
+    @property
+    def reflectivity(self):
+        return self._reflectivity
+
+    @property
+    def transmissivity(self):
+        return self._transmissivity
+
+    @property
+    def rad_file_content(self):
+        return self._rad_file_content
+
+    # =========================================================
+    # Method to get "processed" properties of the surface
+    # =========================================================
+    def get_view_factor_from_surface_id(self, surface_id: str):
+        """
+        Get the view factor of a surface viewed by the current surface.
+        :param surface_id: str, the identifier of the viewed surface.
+        """
+        try:
+            index = self.get_index_viewed_surface(surface_id)
+            return self._viewed_surfaces_view_factor_list[index]
+        except KeyError:
+            raise KeyError(f"The surface {surface_id} is not in the viewed surfaces list.")
+
+    def get_index_viewed_surface(self, viewed_surface_id: str):
+        """
+        Get the index of a viewed surface.
+        :param viewed_surface_id: str, the identifier of the viewed surface.
+        """
+        try:
+            return self._viewed_surfaces_dict[viewed_surface_id]
+        except KeyError:
+            raise KeyError(f"The surface {viewed_surface_id} is not in the viewed surfaces list.")
+    # =========================================================
+    # Methods to set the properties of the surface
+    # =========================================================
     def set_geometry(self, vertex_list: List[List[float]]):
         """
         Set the geometry of the surface.
         :param vertex_list: List[List[float]], the list of vertices of the object.
         """
-        self.vertex_list = vertex_list
-        self.rad_file_content = from_vertex_list_to_rad_str(vertices=vertex_list, identifier=self.identifier)
-        self.area, self.centroid = compute_planar_surface_area_and_centroid(vertex_list=vertex_list)
-        self.corner_vertices = compute_planar_surface_corners_from_existing_points(vertex_list=vertex_list)
+        self._vertex_list = vertex_list
+        self._rad_file_content = from_vertex_list_to_rad_str(vertices=vertex_list, identifier=self._identifier)
+        self._area, self._centroid = compute_planar_surface_area_and_centroid(vertex_list=vertex_list)
+        self._corner_vertices = compute_planar_surface_corners(vertex_list=vertex_list)
 
     def set_radiative_properties(self, emissivity: float = 0., reflectivity: float = 0., transmissivity: float = 0.):
         """
@@ -156,33 +268,33 @@ class RadiativeSurface:
         :param transmissivity: float, the transmissivity of the surface.
         """
         # Validate set properties
-        if isinstance(emissivity, float) and 0<=emissivity<=1:
-            self.emissivity = emissivity
+        if isinstance(emissivity, float) and 0 <= emissivity <= 1:
+            self._emissivity = emissivity
         else:
-            raise ValueError(f"Emissivity for surface {self.identifier} must be a float between 0 and 1.")
-        if isinstance(reflectivity, float) and 0<=reflectivity<=1:
-            self.reflectivity = reflectivity
+            raise ValueError(f"Emissivity for surface {self._identifier} must be a float between 0 and 1.")
+        if isinstance(reflectivity, float) and 0 <= reflectivity <= 1:
+            self._reflectivity = reflectivity
         else:
-            raise ValueError(f"Emissivity for surface {self.identifier} must be a float between 0 and 1.")
-        if isinstance(transmissivity, float) and 0<=transmissivity<=1:
-            self.transmissivity = transmissivity
+            raise ValueError(f"Emissivity for surface {self._identifier} must be a float between 0 and 1.")
+        if isinstance(transmissivity, float) and 0 <= transmissivity <= 1:
+            self._transmissivity = transmissivity
         else:
-            raise ValueError(f"Emissivity for surface {self.identifier} must be a float between 0 and 1.")
+            raise ValueError(f"Emissivity for surface {self._identifier} must be a float between 0 and 1.")
 
         # Check value integrity.
-        if sum([self.emissivity, self.reflectivity, self.transmissivity]) == 1.:
+        if sum([self._emissivity, self._reflectivity, self._transmissivity]) == 1.:
             return
-        elif sum([self.emissivity, self.reflectivity, self.transmissivity]) > 1.:
-            raise ValueError(f"The sum of the emissivity, reflectivity and transmissivity of surface {self.identifier} "
+        elif sum([self._emissivity, self._reflectivity, self._transmissivity]) > 1.:
+            raise ValueError(f"The sum of the emissivity, reflectivity and transmissivity of surface {self._identifier} "
                              f"is not equal to 1.")
         # Adjust the properties if needed
-        else :
-            if self.emissivity == 0:
-                self.emissivity = 1. - self.reflectivity - self.transmissivity
-            elif self.reflectivity == 0:
-                self.reflectivity = 1. - self.emissivity - self.transmissivity
-            elif self.transmissivity == 0:
-                self.transmissivity = 1. - self.emissivity - self.reflectivity
+        else:
+            if self._emissivity == 0:  # Priority to emissivity
+                self._emissivity = 1. - self._reflectivity - self._transmissivity
+            elif self._reflectivity == 0:
+                self._reflectivity = 1. - self._emissivity - self._transmissivity
+            elif self._transmissivity == 0:
+                self._transmissivity = 1. - self._emissivity - self._reflectivity
 
     def add_viewed_surfaces(self, viewed_surface_id_list: List[str]):
         """
@@ -201,44 +313,9 @@ class RadiativeSurface:
             else:
                 raise ValueError(f"The surface {viewed_surface_id} is already in the viewed surfaces list.")
 
-    def get_viewed_surfaces_id_list(self):
-        """
-        Get the list of identifiers of the surfaces viewed by the current surface.
-        """
-        return list(self._viewed_surfaces_id_list)
-
-    def get_viewed_surfaces_view_factor_list(self):
-        """
-        Get the list of view factors of the surfaces viewed by the current surface.
-        """
-        return list(self._viewed_surfaces_view_factor_list)
-
-    def get_view_factor_from_surface_id(self, surface_id: str):
-        """
-        Get the view factor of a surface viewed by the current surface.
-        :param surface_id: str, the identifier of the viewed surface.
-        """
-        try:
-            index = self.get_index_viewed_surface(surface_id)
-            return self._viewed_surfaces_view_factor_list[index]
-        except KeyError:
-            raise KeyError(f"The surface {surface_id} is not in the viewed surfaces list.")
-
-    def get_viewed_surfaces_dict(self):
-        """
-        Get the dictionary of viewed surfaces.
-        """
-        return dict(self._viewed_surfaces_dict)
-
-    def get_index_viewed_surface(self, viewed_surface_id: str):
-        """
-        Get the index of a viewed surface.
-        :param viewed_surface_id: str, the identifier of the viewed surface.
-        """
-        try:
-            return self._viewed_surfaces_dict[viewed_surface_id]
-        except KeyError:
-            raise KeyError(f"The surface {viewed_surface_id} is not in the viewed surfaces list.")
+    # =========================================================
+    # VF related methods
+    # =========================================================
 
     def adjust_view_factor(self, surface_id: str, view_factor: float):
         """"
@@ -254,9 +331,9 @@ class RadiativeSurface:
             raise IndexError(
                 f"The index of the surface is  {index}, but it looks like not VF was set for this surface yet.")
 
-    ##############################
+    # =========================================================
     # File Generation Methods
-    ##############################
+    # =========================================================
 
     def generate_rad_file_name(self) -> (str, str, str, str):
         """
@@ -272,25 +349,25 @@ class RadiativeSurface:
         """
         Generate the name of the emitter Radiance file from the identifier without the extension.
         """
-        return f"emitter_{self.identifier}"
+        return f"emitter_{self._identifier}"
 
     def name_octree_file(self) -> str:
         """
         Generate the name of the octree file from the identifier without the extension.
         """
-        return f"{self.identifier}"
+        return f"{self._identifier}"
 
     def name_receiver_file(self) -> str:
         """
         Generate the name of the receiver Radiance file from the identifier without the extension and batch number.
         """
-        return f"receiver_{self.identifier}_batch_"
+        return f"receiver_{self._identifier}_batch_"
 
     def name_output_file(self) -> str:
         """
         Generate the name of the output Radiance file from the identifier without the extension and batch number.
         """
-        return f"output_{self.identifier}_batch_"
+        return f"output_{self._identifier}_batch_"
 
     ##############################
     # Read VF Output Files Methods

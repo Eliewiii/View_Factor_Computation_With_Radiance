@@ -6,6 +6,8 @@ import pytest
 from copy import deepcopy
 
 from pyvista import PolyData
+from shapely import centroid
+from vtkmodules.generate_pyi import identifier
 
 from src.radiance_comp_vf import RadiativeSurface
 
@@ -15,6 +17,17 @@ point_b = [1., 1., 0.]
 point_c = [0., 1., 0.]
 point_d = [0., 0., 0.]
 polydata_obj_1 = PolyData([point_a, point_b, point_c, point_d])
+
+# Sample surface
+surface_0 = [
+    [0., 0., 0.],
+    [10., 0., 0.],
+    [10., 10., 0.],
+    [0., 10., 0.]
+]
+area_surface_0 = 100
+centroid_surface_0 = [5., 5., 0.]
+
 
 
 @pytest.fixture(scope='function')
@@ -41,7 +54,7 @@ class TestRadiativeSurface:
         """
         radiative_surface = RadiativeSurface("identifier")
         assert radiative_surface.identifier == "identifier"
-        assert radiative_surface.hb_identifier is None
+        assert radiative_surface.origin_identifier == "identifier"
         assert radiative_surface.polydata_geometry is None
         assert radiative_surface._viewed_surfaces_id_list == []
         assert radiative_surface._viewed_surfaces_view_factor_list == []
@@ -50,13 +63,76 @@ class TestRadiativeSurface:
         assert radiative_surface.transmissivity is None
         assert radiative_surface.rad_file_content is None
 
+    def test_init_radiative_surface_with_identifier_with_forbidden_characters(self):
+        """
+        Test the initialization of the RadiativeSurface class with an identifier containing forbidden characters and
+        and invalid identifier (that cannot be adjusted automatically by the .
+        """
+        identifier = "identifier with spaces:and-forbidden_characters"
+        radiative_surface = RadiativeSurface(identifier=identifier)
+        assert radiative_surface.identifier == "identifier_with_spaces_and_forbidden_characters"
+        assert radiative_surface.origin_identifier == identifier
+        # Only invalid characters or underscores
+        identifier = "_;.--_"
+        with pytest.raises(ValueError):
+            radiative_surface = RadiativeSurface(identifier=identifier)
+
+    def test_set_radiative_properties(self):
+        identifier = "test surface 1"
+        # Test with valid values
+        radiative_surface = RadiativeSurface(identifier=identifier)
+        emissivity = 0.5
+        reflectivity = 0.3
+        transmissivity = 0.2
+        radiative_surface.set_radiative_properties(emissivity=emissivity, reflectivity=reflectivity,
+                                                   transmissivity=transmissivity)
+        assert radiative_surface.emissivity == emissivity
+        assert radiative_surface.reflectivity == reflectivity
+        assert radiative_surface.transmissivity == transmissivity
+        # Test with only emissivity
+        radiative_surface = RadiativeSurface(identifier=identifier)
+        emissivity = 0.5
+        radiative_surface.set_radiative_properties(emissivity=emissivity)
+        assert radiative_surface.emissivity == emissivity
+        assert radiative_surface.reflectivity == 1 - emissivity
+        assert radiative_surface.transmissivity == 0.
+        # Test with reflectivity an emissivity
+        radiative_surface = RadiativeSurface(identifier=identifier)
+        emissivity = 0.5
+        reflectivity = 0.3
+        radiative_surface.set_radiative_properties(emissivity=emissivity, reflectivity=reflectivity)
+        assert radiative_surface.emissivity == emissivity
+        assert radiative_surface.reflectivity == reflectivity
+        assert radiative_surface.transmissivity == 1 - emissivity - reflectivity
+        # Test with  invalid values
+        radiative_surface = RadiativeSurface(identifier=identifier)
+        emissivity = -0.5
+        with pytest.raises(ValueError):
+            radiative_surface.set_radiative_properties(emissivity=emissivity)
+        emissivity = 1.5
+        with pytest.raises(ValueError):
+            radiative_surface.set_radiative_properties(emissivity=emissivity)
+        emissivity = 0.5
+        reflectivity = 0.5
+        transmissivity = 0.5
+        with pytest.raises(ValueError):
+            radiative_surface.set_radiative_properties(emissivity=emissivity, reflectivity=reflectivity,
+                                                       transmissivity=transmissivity)
+
+    def test_from_vertex_list(self):
+        radiative_surface_object= RadiativeSurface.from_vertex_list("identifier", vertex_list=surface_0)
+        # assert radiative_surface_object.
+
+
+
+
     def test_from_polydata(self):
         """
         Test the from_polydata method of the RadiativeSurface class.
         """
         radiative_surface = RadiativeSurface.from_polydata("identifier", polydata_obj_1)
         assert radiative_surface.identifier == "identifier"
-        assert radiative_surface.hb_identifier is None
+        assert radiative_surface.origin_identifier == "identifier"
         assert radiative_surface.polydata_geometry == polydata_obj_1
         assert radiative_surface.viewed_surfaces_id_list == []
         assert radiative_surface.viewed_surfaces_view_factor_list == []
@@ -82,7 +158,7 @@ class TestRadiativeSurface:
         radiative_surface = radiative_surface_instance
         new_radiative_surface = deepcopy(radiative_surface)
         assert new_radiative_surface.identifier == radiative_surface.identifier
-        assert new_radiative_surface.hb_identifier == radiative_surface.hb_identifier
+        assert new_radiative_surface.origin_identifier == radiative_surface.origin_identifier
         assert new_radiative_surface.polydata_geometry == radiative_surface.polydata_geometry
         assert new_radiative_surface.viewed_surfaces_view_factor_list == radiative_surface.viewed_surfaces_view_factor_list
         assert new_radiative_surface.viewed_surfaces_id_list == radiative_surface.viewed_surfaces_id_list
@@ -123,7 +199,7 @@ class TestRadiativeSurface:
         # todo
         # radiative_surface = RadiativeSurface.from_random_rectangles()
         # assert radiative_surface.identifier == "random_rectangle"
-        # assert radiative_surface.hb_identifier is None
+        # assert radiative_surface.origin_identifier is None
         # assert radiative_surface.polydata_geometry is not None
         # assert radiative_surface.viewed_surfaces_id_list == []
         # assert radiative_surface.viewed_surfaces_view_factor_list == []
