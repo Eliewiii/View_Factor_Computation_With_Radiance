@@ -6,6 +6,7 @@ import os
 import pickle
 
 from typing import List
+from copy import deepcopy
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
@@ -24,10 +25,9 @@ class RadiativeSurfaceManager:
 
     def __init__(self):
         self._radiative_surface_dict: dict = {}
-        self.context_octree = None
         self._radiance_argument_list: List[List] = []
         # Simulation parameters
-        self.sim_parameter_dict = {"num_rays": None, "num_receiver_per_file": None}
+        self._sim_parameter_dict = {"num_rays": None, "num_receiver_per_file": None}
 
     def __str__(self):
         return (f"RadiativeSurfaceManager with {len(self._radiative_surface_dict)} RadiativeSurface objects."
@@ -158,6 +158,13 @@ class RadiativeSurfaceManager:
         with open(path_pkl_file, 'rb') as f:
             radiative_surface_manager = pickle.load(f)
         return radiative_surface_manager
+
+    # =========================================================
+    # Properties
+    # =========================================================
+    @property
+    def sim_parameter_dict(self):
+        return deepcopy(self._sim_parameter_dict)
 
     def add_radiative_surfaces(self, *args, check_id_uniqueness=True):
         """
@@ -440,7 +447,7 @@ class RadiativeSurfaceManager:
         Compute the view factor between multiple emitter and receiver with Radiance in batches.
         :param nb_rays: int, the number of rays to use.
         """
-        self.sim_parameter_dict["num_rays"] = nb_rays
+        self._sim_parameter_dict["num_rays"] = nb_rays
         for input_arg in self._radiance_argument_list:
             compute_vf_between_emitter_and_receivers_radiance(*input_arg, nb_rays=nb_rays)
 
@@ -453,7 +460,7 @@ class RadiativeSurfaceManager:
         :param worker_batch_size: int, the size of the batch of commands to run in parallel.
         :param executor_type: the type of executor to use for the parallelization.
         """
-        self.sim_parameter_dict["num_rays"] = nb_rays
+        self._sim_parameter_dict["num_rays"] = nb_rays
         parallel_computation_in_batches_with_return(
             func=compute_vf_between_emitter_and_receivers_radiance,
             input_tables=self._radiance_argument_list,
@@ -476,8 +483,7 @@ class RadiativeSurfaceManager:
         :param executor_type: the type of executor to use for the parallelization.
         """
 
-        self.sim_parameter_dict["num_rays"] = nb_rays
-
+        self._sim_parameter_dict["num_rays"] = nb_rays
         # todo: add the octree to the arguments (and maybe generate it)
         input_batches = split_into_batches(self._radiance_argument_list, batch_size=command_batch_size)
 
@@ -527,7 +533,7 @@ class RadiativeSurfaceManager:
                 radiative_surface_obj_2 = self.get_radiative_surface(surface_id_2)
                 vf_2_1 = radiative_surface_obj_2.get_view_factor_from_surface_id(surface_id=surface_id_1)
                 if self.is_view_factor_to_adjust(vf_1_2=vf_1_2, vf_2_1=vf_2_1,
-                                                 num_rays=self.sim_parameter_dict["num_rays"]):
+                                                 num_rays=self._sim_parameter_dict["num_rays"]):
                     new_vf_1_2 = self.adjust_view_factors(vf_2_1=vf_2_1, area_1=radiative_surface_obj_1.area,
                                                           area_2=radiative_surface_obj_2.area)
                     radiative_surface_obj_1.set_view_factor_from_surface_id(surface_id=surface_id_2,
