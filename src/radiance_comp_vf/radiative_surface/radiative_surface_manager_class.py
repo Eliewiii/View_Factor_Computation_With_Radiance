@@ -298,13 +298,13 @@ class RadiativeSurfaceManager:
         :param consider_octree: bool, if True, consider the octree file in the Radiance command.
         """
         # Check if the surface has viewed surfaces aka simulation is needed
-        if len(radiative_surface_obj.viewed_surfaces_id_list()) == 0:
+        if len(radiative_surface_obj.viewed_surfaces_id_list) == 0:
             return [[]]
         # Get the rad_str of the emitter and receivers
         emitter_rad_str = radiative_surface_obj.rad_file_content
         receiver_rad_str_list: List[List[str]] = [self.get_radiative_surface(receiver_id).rad_file_content for
                                                   receiver_id in
-                                                  radiative_surface_obj.viewed_surfaces_id_list()]
+                                                  radiative_surface_obj.viewed_surfaces_id_list]
         # Split the list of receiver rad str into batches
         receiver_rad_str_list_batches = split_into_batches(receiver_rad_str_list, num_receiver_per_file)
         # Generate the paths of the Radiance files
@@ -501,7 +501,8 @@ class RadiativeSurfaceManager:
         :param worker_batch_size: int, the size of the batch of commands to run in parallel.
         :param executor_type: the type of executor to use for the parallelization.
         """
-
+        _, _, _, path_output_folder = self.create_vf_simulation_folders(
+            path_output_folder,return_file_path_only=True)
         parallel_computation_in_batches_with_return(
             func=object_method_wrapper,
             input_tables=[[radiative_surface_obj] for radiative_surface_obj in

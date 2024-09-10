@@ -6,6 +6,7 @@ import pytest
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
+from src.radiance_comp_vf import RadiativeSurface
 from src.radiance_comp_vf import RadiativeSurfaceManager
 from src.radiance_comp_vf.utils import split_into_batches
 from src.radiance_comp_vf.radiative_surface.radiative_surface_manager_class import flatten_table_to_lists
@@ -25,6 +26,18 @@ def radiative_surface_manager_instance():
 
 num_ref_rectangles = 10
 num_random_rectangle = 10
+
+
+@pytest.fixture(scope='function')
+def radiative_surface_manager_instance_with_random_rectangles():
+    radiative_surface_manager_instance = RadiativeSurfaceManager.from_random_rectangles(
+        num_ref_rectangles=num_ref_rectangles,
+        num_random_rectangle=num_random_rectangle,
+        min_size=0.1, max_size=10,
+        max_distance_factor=10,
+        parallel_coaxial_squares=False
+    )
+    return radiative_surface_manager_instance
 
 
 @pytest.fixture(scope='function')
@@ -125,19 +138,22 @@ class TestRadiativeSurfaceManagerRadianceIndividualInputGeneration:
         # Get the names of the Radiance files
         name_emitter_rad_file, name_octree_file, name_receiver_rad_file, name_output_file = radiative_surface_obj.generate_rad_file_name()
         # get the radiative surface strings
-        receiver_rad_str_list = [radiative_surface_manager.get_radiative_surface(receiver_id).rad_file_content for
+        receiver_rad_str_list = [radiative_surface_manager.get_radiative_surface(receiver_id).rad_file_content
+                                 for
                                  receiver_id in
                                  radiative_surface_obj.get_viewed_surfaces_id_list()]
         # Generate the octree file with 1 batch
-        path_octree_file = radiative_surface_manager.generate_octree(receiver_rad_str_list=receiver_rad_str_list,
-                                                path_octree_folder=path_octree_folder,
-                                                name_octree_file=name_octree_file,
-                                                num_receiver_per_octree=1000)  # 1000 far beyong the number of viewed surfaces
+        path_octree_file = radiative_surface_manager.generate_octree(
+            receiver_rad_str_list=receiver_rad_str_list,
+            path_octree_folder=path_octree_folder,
+            name_octree_file=name_octree_file,
+            num_receiver_per_octree=1000)  # 1000 far beyong the number of viewed surfaces
         # Generate the octree file with more than 1 batch
-        path_octree_file = radiative_surface_manager.generate_octree(receiver_rad_str_list=receiver_rad_str_list,
-                                                path_octree_folder=path_octree_folder,
-                                                name_octree_file=name_octree_file,
-                                                num_receiver_per_octree=5)
+        path_octree_file = radiative_surface_manager.generate_octree(
+            receiver_rad_str_list=receiver_rad_str_list,
+            path_octree_folder=path_octree_folder,
+            name_octree_file=name_octree_file,
+            num_receiver_per_octree=5)
 
 
 class TestRadiativeSurfaceManagerRadianceInputGeneration:
@@ -169,7 +185,7 @@ class TestRadiativeSurfaceManagerRadianceInputGeneration:
         num_emitter = len(
             [identifier for identifier, rad_surface_obj in
              radiative_surface_manager._radiative_surface_dict.items() if
-             len(rad_surface_obj.get_viewed_surfaces_id_list()) > 0])
+             len(rad_surface_obj.viewed_surfaces_id_list) > 0])
         num_emitter_files = len(os.listdir(path_emitter_folder))
         assert num_emitter == num_emitter_files
         assert len(os.listdir(path_receiver_folder)) == len(radiative_surface_manager._radiance_argument_list)
@@ -229,7 +245,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         assert len(os.listdir(path_receiver_folder)) == len(radiative_surface_manager._radiance_argument_list)
         # Compute the view factors
         nb_rays = 10000
-        num_workers = 1
+        num_workers = 8
         worker_batch_size = 2
         radiative_surface_manager.run_vf_computation_in_parallel(
             nb_rays=nb_rays,
@@ -240,6 +256,261 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         # Check the output files
         assert len(os.listdir(path_output_folder)) == len(radiative_surface_manager._radiance_argument_list)
         assert len(os.listdir(path_output_folder)) == len(os.listdir(path_receiver_folder))
+
+    def test_run_vf_computation_with_surfaces_with_holes(self):
+        surface_0 = [
+            [0., 0., 0.],
+            [10., 0., 0.],
+            [10., 10., 0.],
+            [0., 10., 0.]
+        ]
+        surface_1 = [
+            [0., 0., 10.],
+            [0., 10., 10.],
+            [10., 10., 10.],
+            [10., 0., 10.]
+        ]
+        hole_0_sur_1 = [
+            [4., 4., 10.],
+            [4., 6., 10.],
+            [6., 6., 10.],
+            [6., 4., 10.]
+        ]
+
+        # ---------------------------------------------------------
+        # Computation without hole
+        # ---------------------------------------------------------
+        radiative_surface_manager = RadiativeSurfaceManager()
+        radiative_surface_obj_0 = RadiativeSurface.from_vertex_list(vertex_list=surface_0,
+                                                                    identifier="surface_0")
+        radiative_surface_obj_1 = RadiativeSurface.from_vertex_list(vertex_list=surface_1,
+                                                                    identifier="surface_1")
+        radiative_surface_obj_0.add_viewed_surfaces(["surface_1"])
+        radiative_surface_manager.add_radiative_surfaces([radiative_surface_obj_0, radiative_surface_obj_1])
+        # file generation
+        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
+            path_root_simulation_folder=radiance_test_file_dir,
+            num_receiver_per_file=10,
+            num_workers=1,
+            worker_batch_size=1,
+            executor_type=ThreadPoolExecutor
+        )
+        # Compute the view factors
+        nb_rays = 100000
+        num_workers = 1
+        worker_batch_size = 1
+        radiative_surface_manager.run_vf_computation_in_parallel(
+            nb_rays=nb_rays,
+            num_workers=num_workers,
+            worker_batch_size=worker_batch_size,
+            executor_type=ThreadPoolExecutor
+        )
+        radiative_surface_manager.read_vf_from_radiance_output_files(
+            path_output_folder=radiance_test_file_dir)
+        vf_witout_hole = \
+        radiative_surface_manager.get_radiative_surface("surface_0").viewed_surfaces_view_factor_list[0]
+        # ---------------------------------------------------------
+        # Computation with hole
+        # ---------------------------------------------------------
+        radiative_surface_manager = RadiativeSurfaceManager()
+        radiative_surface_obj_0 = RadiativeSurface.from_vertex_list(vertex_list=surface_0,
+                                                                    identifier="surface_0")
+        radiative_surface_obj_1_with_holes = RadiativeSurface.from_vertex_list(vertex_list=surface_1,
+                                                                               identifier="surface_1_with_hole",
+                                                                               hole_list=[hole_0_sur_1])
+        radiative_surface_obj_0.add_viewed_surfaces(["surface_1_with_hole"])
+        radiative_surface_manager.add_radiative_surfaces(
+            [radiative_surface_obj_0, radiative_surface_obj_1_with_holes])
+        # file generation
+        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
+            path_root_simulation_folder=radiance_test_file_dir,
+            num_receiver_per_file=10,
+            num_workers=1,
+            worker_batch_size=1,
+            executor_type=ThreadPoolExecutor
+        )
+        # Compute the view factors
+        nb_rays = 100000
+        num_workers = 1
+        worker_batch_size = 1
+        radiative_surface_manager.run_vf_computation_in_parallel(
+            nb_rays=nb_rays,
+            num_workers=num_workers,
+            worker_batch_size=worker_batch_size,
+            executor_type=ThreadPoolExecutor
+        )
+        radiative_surface_manager.read_vf_from_radiance_output_files(
+            path_output_folder=radiance_test_file_dir)
+        vf_with_hole = \
+            radiative_surface_manager.get_radiative_surface("surface_0").viewed_surfaces_view_factor_list[0]
+
+        # ---------------------------------------------------------
+        # Computation of the hole itself
+        # ---------------------------------------------------------
+        radiative_surface_manager = RadiativeSurfaceManager()
+        radiative_surface_obj_0 = RadiativeSurface.from_vertex_list(vertex_list=surface_0,
+                                                                    identifier="surface_0")
+        radiative_hole_obj = RadiativeSurface.from_vertex_list(vertex_list=hole_0_sur_1,
+                                                               identifier="hole_0_sur_1")
+
+        radiative_surface_obj_0.add_viewed_surfaces(["hole_0_sur_1"])
+        radiative_surface_manager.add_radiative_surfaces(
+            [radiative_surface_obj_0, radiative_hole_obj])
+        # file generation
+        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
+            path_root_simulation_folder=radiance_test_file_dir,
+            num_receiver_per_file=10,
+            num_workers=1,
+            worker_batch_size=1,
+            executor_type=ThreadPoolExecutor
+        )
+        # Compute the view factors
+        nb_rays = 100000
+        num_workers = 1
+        worker_batch_size = 1
+        radiative_surface_manager.run_vf_computation_in_parallel(
+            nb_rays=nb_rays,
+            num_workers=num_workers,
+            worker_batch_size=worker_batch_size,
+            executor_type=ThreadPoolExecutor
+        )
+        radiative_surface_manager.read_vf_from_radiance_output_files(
+            path_output_folder=radiance_test_file_dir)
+        vf_hole = \
+            radiative_surface_manager.get_radiative_surface("surface_0").viewed_surfaces_view_factor_list[0]
+
+        print("")
+        print(f"vf_witout_hole: {vf_witout_hole}")
+        print(f"vf with hole: {vf_with_hole}")
+        print(f"vf hole: {vf_hole}")
+        print(f"vf_with_hole/(vf_witout_hole-vf_hole): {vf_with_hole / (vf_witout_hole - vf_hole)}")
+
+    def test_run_vf_computation_with_obstruction_in_octree(self):
+        surface_0 = [
+            [0., 0., 0.],
+            [10., 0., 0.],
+            [10., 10., 0.],
+            [0., 10., 0.]
+        ]
+        surface_1 = [
+            [4., 4., 5.],
+            [4., 6., 5.],
+            [6., 6., 5.],
+            [6., 4., 5.]
+        ]
+        surface_2 = [
+            [0., 0., 10.],
+            [0., 10., 10.],
+            [10., 10., 10.],
+            [10., 0., 10.]
+        ]
+
+        # ---------------------------------------------------------
+        # Computation Surface 1
+        # ---------------------------------------------------------
+        radiative_surface_manager = RadiativeSurfaceManager()
+        radiative_surface_obj_0 = RadiativeSurface.from_vertex_list(vertex_list=surface_0,
+                                                                    identifier="surface_0")
+        radiative_surface_obj_1 = RadiativeSurface.from_vertex_list(vertex_list=surface_1,
+                                                                    identifier="surface_1")
+        radiative_surface_obj_0.add_viewed_surfaces(["surface_1"])
+        radiative_surface_manager.add_radiative_surfaces([radiative_surface_obj_0, radiative_surface_obj_1])
+        # file generation
+        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
+            path_root_simulation_folder=radiance_test_file_dir,
+            num_receiver_per_file=1,
+            num_workers=1,
+            worker_batch_size=1,
+            executor_type=ThreadPoolExecutor
+        )
+        # Compute the view factors
+        nb_rays = 100000
+        num_workers = 1
+        worker_batch_size = 1
+        radiative_surface_manager.run_vf_computation_in_parallel(
+            nb_rays=nb_rays,
+            num_workers=num_workers,
+            worker_batch_size=worker_batch_size,
+            executor_type=ThreadPoolExecutor
+        )
+        radiative_surface_manager.read_vf_from_radiance_output_files(
+            path_output_folder=radiance_test_file_dir)
+        vf_s1 = radiative_surface_manager.get_radiative_surface("surface_0").viewed_surfaces_view_factor_list[
+            0]
+        # ---------------------------------------------------------
+        # Computation with hole
+        # ---------------------------------------------------------
+        radiative_surface_manager = RadiativeSurfaceManager()
+        radiative_surface_obj_0 = RadiativeSurface.from_vertex_list(vertex_list=surface_0,
+                                                                    identifier="surface_0")
+        radiative_surface_obj_2 = RadiativeSurface.from_vertex_list(vertex_list=surface_2,
+                                                                    identifier="surface_2")
+        radiative_surface_obj_0.add_viewed_surfaces(["surface_2"])
+        radiative_surface_manager.add_radiative_surfaces([radiative_surface_obj_0, radiative_surface_obj_2])
+        # file generation
+        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
+            path_root_simulation_folder=radiance_test_file_dir,
+            num_receiver_per_file=1,
+            num_workers=1,
+            worker_batch_size=1,
+            executor_type=ThreadPoolExecutor
+        )
+        # Compute the view factors
+        nb_rays = 100000
+        num_workers = 1
+        worker_batch_size = 1
+        radiative_surface_manager.run_vf_computation_in_parallel(
+            nb_rays=nb_rays,
+            num_workers=num_workers,
+            worker_batch_size=worker_batch_size,
+            executor_type=ThreadPoolExecutor
+        )
+        radiative_surface_manager.read_vf_from_radiance_output_files(
+            path_output_folder=radiance_test_file_dir)
+        vf_s2 = \
+            radiative_surface_manager.get_radiative_surface("surface_0").viewed_surfaces_view_factor_list[0]
+
+        # ---------------------------------------------------------
+        # Computation of the hole itself
+        # ---------------------------------------------------------
+        radiative_surface_manager = RadiativeSurfaceManager()
+        radiative_surface_obj_0 = RadiativeSurface.from_vertex_list(vertex_list=surface_0,
+                                                                    identifier="surface_0")
+        radiative_surface_obj_1 = RadiativeSurface.from_vertex_list(vertex_list=surface_1,
+                                                                    identifier="surface_1")
+        radiative_surface_obj_2 = RadiativeSurface.from_vertex_list(vertex_list=surface_2,
+                                                                    identifier="surface_2")
+        radiative_surface_obj_0.add_viewed_surfaces(["surface_1", "surface_2"])
+        radiative_surface_manager.add_radiative_surfaces([radiative_surface_obj_0,radiative_surface_obj_1, radiative_surface_obj_2])
+        # file generation
+        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
+            path_root_simulation_folder=radiance_test_file_dir,
+            num_receiver_per_file=1,
+            num_workers=1,
+            worker_batch_size=1,
+            executor_type=ThreadPoolExecutor
+        )
+        # Compute the view factors
+        nb_rays = 100000
+        num_workers = 1
+        worker_batch_size = 1
+        radiative_surface_manager.run_vf_computation_in_parallel(
+            nb_rays=nb_rays,
+            num_workers=num_workers,
+            worker_batch_size=worker_batch_size,
+            executor_type=ThreadPoolExecutor
+        )
+        radiative_surface_manager.read_vf_from_radiance_output_files(
+            path_output_folder=radiance_test_file_dir)
+        [vf_s1_obs, vf_s2_obs] = radiative_surface_manager.get_radiative_surface(
+            "surface_0").viewed_surfaces_view_factor_list
+
+        print("")
+        print(f"vf_s1: {vf_s1}")
+        print(f"vf_s2: {vf_s2}")
+        print(f"vf_s1_obs: {vf_s1_obs}")
+        print(f"vf_s2_obs: {vf_s2_obs}")
+        print(f"vf_s2_obs=vf_s2-vf_s1: {vf_s2_obs}={vf_s2 - vf_s1} ?")
 
 
 def test_flatten_table_to_lists():

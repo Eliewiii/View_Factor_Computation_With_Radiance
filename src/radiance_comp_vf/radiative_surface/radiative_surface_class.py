@@ -128,11 +128,8 @@ class RadiativeSurface:
         if not isinstance(polydata, PolyData):
             raise ValueError(f"The polydata must be a PolyData object, not {type(polydata)}.")
         radiative_surface_obj = cls(identifier)
-        vertex_list = from_polydata_to_vertex_list(polydata)
-        radiative_surface_obj.vertex_list = vertex_list
-        radiative_surface_obj.rad_file_content = from_vertex_list_to_rad_str(vertices=vertex_list,
-                                                                             identifier=identifier)
-        radiative_surface_obj.area = compute_polydata_area(polydata_obj=polydata)
+        vertex_list = polydata.points.tolist()
+        radiative_surface_obj.set_geometry(vertex_list=vertex_list)
 
         return radiative_surface_obj
 
@@ -383,8 +380,10 @@ class RadiativeSurface:
         attribute.
         :param path_output_folder:
         """
+
         list_output_files = [f for f in os.listdir(path_output_folder) if
                              f.startswith(self.name_output_file())]
+        list_output_files.sort(key=lambda x: int(x.split("_")[-1].split(".")[0]))# Order the files by batch number
         for output_file in list_output_files:
             if output_file.startswith(self.name_output_file()):
                 self._viewed_surfaces_view_factor_list.extend(
