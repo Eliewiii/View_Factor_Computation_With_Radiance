@@ -30,6 +30,7 @@ class RadiativeSurface:
         self._vertex_list: List[List[float]] = None
         self._area: float = None
         self._centroid: List[float] = None
+        self._normal: List[float] = None
         self._corner_vertices: List[List[float]] = None
         #
         self._num_viewed_surfaces: int = 0
@@ -37,7 +38,7 @@ class RadiativeSurface:
         self._viewed_surfaces_id_list: List = []
         self._viewed_surfaces_view_factor_list: List = []
         # VF properties
-        self.vf_total: float = 0.  # Total view factor of the surface
+        self._vf_total: float = 0.  # Total view factor of the surface
         self._vf_to_surfaces: float = 0.  # Total view factor of the other surfaces
         self._vf_ground: float = 0.
         self._vf_sky: float = 0.
@@ -190,8 +191,8 @@ class RadiativeSurface:
         return list(self._viewed_surfaces_view_factor_list)
 
     @property
-    def vf_tot(self):
-        return self._vf_tot
+    def vf_total(self):
+        return self._vf_total
 
     @property
     def vf_to_surfaces(self):
@@ -313,6 +314,22 @@ class RadiativeSurface:
                 self._num_viewed_surfaces += 1
             else:
                 raise ValueError(f"The surface {viewed_surface_id} is already in the viewed surfaces list.")
+
+    # =========================================================
+    # Obstruction Methods
+    # =========================================================
+
+    @classmethod
+    def are_facing_each_other(cls, surface_1: 'RadiativeSurface', surface_2: 'RadiativeSurface') -> bool:
+        """
+        Check if two surfaces are facing each other.
+        :param surface_1: RadiativeSurface, the first surface.
+        :param surface_2: RadiativeSurface, the second surface.
+        """
+
+        # Check if the normal vectors are facing each other
+        return cls.are_normal_vectors_facing_each_other(surface_1.normal, surface_2.normal)
+
 
     # =========================================================
     # VF related methods
