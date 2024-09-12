@@ -2,12 +2,13 @@
 Utils functions for the visibility analysis of planar surfaces.
 """
 
-from typing import List
-
-import numpy as np
 import pyvista as pv
+import numpy as np
 
-from geoplus import are_planar_surface_vertices_facing_each_other
+from typing import List
+import numpy.typing as npt
+
+from geoplus import are_planar_surface_vertices_facing_each_other, is_ray_intersecting_context
 
 from ..decorators import check_for_list_of_inputs
 
@@ -15,8 +16,9 @@ RAY_OFFSET = 0.05  # offset to avoid considering the sender and receiver in the 
 
 
 @check_for_list_of_inputs(check_for_true=True)
-def are_planar_surfaces_facing_each_other(vertex_surface_1: List[List[float]], vertex_surface_2: List[List[float]],
-                                          normal_1: List[float], normal_2: List[float]):
+def are_planar_surfaces_facing_each_other(vertex_surface_1: npt.NDArray[np.float64],
+                                          vertex_surface_2: npt.NDArray[np.float64],
+                                          normal_1: npt.NDArray[np.float64], normal_2: npt.NDArray[np.float64]):
     """
     This function checks if two planar surfaces are seeing each other.
     Note:
@@ -38,8 +40,10 @@ def are_planar_surfaces_facing_each_other(vertex_surface_1: List[List[float]], v
 
 
 @check_for_list_of_inputs(check_for_true=False)
-def is_ray_intersecting_context(start_point: np.ndarray, end_point: np.ndarray, context_polydata_mesh: pv.PolyData,
-                                 offset: float = RAY_OFFSET) -> bool:
+def is_ray_between_surfaces_intersect_with_context(start_point: npt.NDArray[np.float64],
+                                                   end_point: npt.NDArray[np.float64],
+                                                   context_polydata_mesh: pv.PolyData,
+                                                   offset: float = RAY_OFFSET) -> bool:
     """
     Check if a ray intersects a context mesh.
 
@@ -49,33 +53,9 @@ def is_ray_intersecting_context(start_point: np.ndarray, end_point: np.ndarray, 
     :param offset: float, offset to avoid considering the sender and receiver in the raytracing obstruction detection
     :return:
     """
-    corrected_start_point, corrected_end_point = _excluding_surfaces_from_ray(start_point=start_point,
-                                                                             end_point=end_point, offset=offset)
-    points, ind = context_polydata_mesh.ray_trace(origin=corrected_start_point[0], end_point=corrected_start_point[1],
-                                                  first_point=False,
-                                                  plot=False)
-    if ind == 0:
-        return False
-    else:
-        return True
-
+    return is_ray_intersecting_context(start_point=start_point, end_point=end_point,
+                                       context_polydata_mesh=context_polydata_mesh, offset=offset)
 
 # =========================================================
 # Private Helper Functions
 # =========================================================
-
-def _excluding_surfaces_from_ray(start_point, end_point, offset=RAY_OFFSET):
-    """
-        Return the start and end point of a ray reducing slightly the distance between the vertices to prevent
-        considering the sender and receiver in the raytracing obstruction detection
-        :param start_point: numpy array, start point of the ray
-        :param end_point: numpy array, end point of the ray
-        :param offset: float, offset to avoid considering the sender and receiver in the raytracing obstruction detection
-        :return: new_start_point, new_end_point: numpy arrays, new start and end points of the ray
-    """
-    unit_vector = (end_point - start_point) / np.linalg.norm(end_point - start_point)
-    # Move the ray boundaries
-    new_start_point = start_point + unit_vector * offset  # move the start vertex by 5cm on the toward the end vertex
-    new_end_point = end_point - unit_vector * offset  # move the end vertex by 5cm on the toward the start vertex
-
-    return new_start_point, new_end_point

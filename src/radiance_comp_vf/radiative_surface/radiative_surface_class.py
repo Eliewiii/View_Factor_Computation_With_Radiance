@@ -3,14 +3,18 @@ Class of surfaces for radiative simulations
 """
 
 import os
+import numpy as np
+import numpy.typing as npt
+
 
 from copy import deepcopy
-from numpy import ndarray
+
+
 from pyvista import PolyData
 from typing import List
 
-from geoplus import compute_planar_surface_area_and_centroid, contour_planar_surface_with_holes, \
-    compute_planar_surface_corners
+from geoplus import compute_numpy_array_planar_surface_area_and_centroid, contour_numpy_array_planar_surface_with_holes, \
+    compute_numpy_array_planar_surface_corners
 
 from ..utils import from_vertex_list_to_rad_str, generate_random_rectangles, read_ruflumtx_output_file, \
     compute_polydata_area, from_polydata_to_vertex_list, are_planar_surfaces_facing_each_other
@@ -27,11 +31,11 @@ class RadiativeSurface:
         self._identifier: str = self.adjust_identifier_for_radiance(identifier)  # Identifier, adjusted by the setter
         self._origin_identifier: str = identifier
         # Geometry
-        self._vertex_list: List[List[float]] = None
+        self._vertex_list: npt.NDArray[np.float64] = None
         self._area: float = None
-        self._centroid: List[float] = None
-        self._normal: List[float] = None
-        self._corner_vertices: List[List[float]] = None
+        self._centroid: npt.NDArray[np.float64] = None
+        self._normal: npt.NDArray[np.float64] = None
+        self._corner_vertices: npt.NDArray[np.float64] = None
         #
         self._num_viewed_surfaces: int = 0
         self._viewed_surfaces_dict: dict = {}
@@ -84,14 +88,12 @@ class RadiativeSurface:
         """
         Convert a PolyData with wholes to a RadiativeSurface object.
         :param identifier: str, the identifier of the object.
-        :param vertex_list: List[List[float]], the list of vertices of the object.
-        :param hole_list: List[List[List[float]]], the list of vertices of the holes in the geometry.
-        :param hb_identifier: str, the identifier of the Honeybee object if needed (in case the hb_identifier
-            cannot be used as the identifier).
-
+        :param vertex_list: List[List[float]], the list of vertices of the object or a numpy array.
+        :param hole_list: List[List[List[float]]], the list of vertices of the holes in the geometry or a numpy array.
         """
+        vertex_array = np.array(vertex_list)
         # Convert the geometry array with wholes to a vertex list
-        contoured_verterx_list = contour_planar_surface_with_holes(vertex_list=vertex_list, hole_list=hole_list)
+        contoured_verterx_list = contour_numpy_array_planar_surface_with_holes(contour_numpy_array_planar_surface_with_holes=vertex_list, hole_list=hole_list)
 
         # Compute the area, centroid and corner vertices
         radiative_surface_obj = cls(identifier)
@@ -260,8 +262,8 @@ class RadiativeSurface:
         """
         self._vertex_list = vertex_list
         self._rad_file_content = from_vertex_list_to_rad_str(vertices=vertex_list, identifier=self._identifier)
-        self._area, self._centroid = compute_planar_surface_area_and_centroid(vertex_list=vertex_list)
-        self._corner_vertices = compute_planar_surface_corners(vertex_list=vertex_list)
+        self._area, self._centroid = compute_numpy_array_planar_surface_area_and_centroid(vertex_list=vertex_list)
+        self._corner_vertices = compute_numpy_array_planar_surface_corners(vertex_list=vertex_list)
 
     def set_radiative_properties(self, emissivity: float = 0., reflectivity: float = 0., transmissivity: float = 0.):
         """
