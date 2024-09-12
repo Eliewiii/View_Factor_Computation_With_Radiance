@@ -13,7 +13,7 @@ from geoplus import compute_planar_surface_area_and_centroid, contour_planar_sur
     compute_planar_surface_corners
 
 from ..utils import from_vertex_list_to_rad_str, generate_random_rectangles, read_ruflumtx_output_file, \
-    compute_polydata_area, from_polydata_to_vertex_list
+    compute_polydata_area, from_polydata_to_vertex_list, are_planar_surfaces_facing_each_other
 
 FORBIDDEN_CHARACTERS_NAME_SURFACE_RADIANCE = [' ', '-', '.', ',', ';', ':']
 
@@ -249,6 +249,7 @@ class RadiativeSurface:
             return self._viewed_surfaces_dict[viewed_surface_id]
         except KeyError:
             raise KeyError(f"The surface {viewed_surface_id} is not in the viewed surfaces list.")
+
     # =========================================================
     # Methods to set the properties of the surface
     # =========================================================
@@ -287,8 +288,9 @@ class RadiativeSurface:
         if sum([self._emissivity, self._reflectivity, self._transmissivity]) == 1.:
             return
         elif sum([self._emissivity, self._reflectivity, self._transmissivity]) > 1.:
-            raise ValueError(f"The sum of the emissivity, reflectivity and transmissivity of surface {self._identifier} "
-                             f"is not equal to 1.")
+            raise ValueError(
+                f"The sum of the emissivity, reflectivity and transmissivity of surface {self._identifier} "
+                f"is not equal to 1.")
         # Adjust the properties if needed
         else:
             if self._emissivity == 0:  # Priority to emissivity
@@ -318,9 +320,33 @@ class RadiativeSurface:
     # =========================================================
     # Obstruction Methods
     # =========================================================
-
     @classmethod
-    def are_facing_each_other(cls, surface_1: 'RadiativeSurface', surface_2: 'RadiativeSurface') -> bool:
+    def are_radiative_surfaces_facing_each_other(cls, radiative_surface_1: 'RadiativeSurface',
+                                                 radiative_surface_2: 'RadiativeSurface') -> bool:
+        """
+        Check if two surfaces are facing each other and thus can exchange radiative energy.
+        Does not consider obstruction between the two surfaces. Use the do_radiative_surfaces_see_each_other method for
+           this purpose.
+        Intended for
+        :param radiative_surface_1: RadiativeSurface, the first surface.
+        :param radiative_surface_2: RadiativeSurface, the second surface.
+        :return bool: True if the two surfaces are facing each other, False otherwise.
+        """
+        return radiative_surface_1._is_facing_other_surface(radiative_surface_2)
+
+    def _is_seeing_other_surface(self, radiative_surface_2: 'RadiativeSurface',context_pyvista_polydata_mesh:PolyData) -> bool:
+        """
+        Check if two surfaces are facing each other.
+        :param surface_1: RadiativeSurface, the first surface.
+        :param surface_2: RadiativeSurface, the second surface.
+        """
+        # Check visibility without obstruction
+        if not self._is_facing_other_surface(radiative_surface_2):
+            return False
+        # Ray tracing to check if there is an obstruction
+        self._is_facing_other_surface(radiative_surface_2)
+
+    def _is_facing_other_surface(self, radiative_surface_2: 'RadiativeSurface') -> bool:
         """
         Check if two surfaces are facing each other.
         :param surface_1: RadiativeSurface, the first surface.
@@ -328,8 +354,8 @@ class RadiativeSurface:
         """
 
         # Check if the normal vectors are facing each other
-        return cls.are_normal_vectors_facing_each_other(surface_1.normal, surface_2.normal)
-
+        return are_planar_surfaces_facing_each_other(self._corner_vertices, radiative_surface_2._corner_vertices,
+                                                     normal_1=self._normal, normal_2=radiative_surface_2._normal)
 
     # =========================================================
     # VF related methods
@@ -400,7 +426,7 @@ class RadiativeSurface:
 
         list_output_files = [f for f in os.listdir(path_output_folder) if
                              f.startswith(self.name_output_file())]
-        list_output_files.sort(key=lambda x: int(x.split("_")[-1].split(".")[0]))# Order the files by batch number
+        list_output_files.sort(key=lambda x: int(x.split("_")[-1].split(".")[0]))  # Order the files by batch number
         for output_file in list_output_files:
             if output_file.startswith(self.name_output_file()):
                 self._viewed_surfaces_view_factor_list.extend(
