@@ -10,6 +10,8 @@ from copy import deepcopy
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
+from pyvista import PolyData
+
 from .radiative_surface_class import RadiativeSurface
 
 from ..utils import from_receiver_rad_str_to_rad_files, from_receiver_rad_str_to_octree_file, \
@@ -239,6 +241,19 @@ class RadiativeSurfaceManager:
                     raise ValueError(
                         f"The viewed surface {viewed_surface_id} of the surface {radiative_surface_obj.identifier} "
                         f"is not in the radiative surface manager.")
+
+    ###############################
+    # Visibility check
+    ###############################
+
+    def make_pyvista_polydata_mesh_out_of_all_surfaces(self):
+        """
+        Make a PyVista PolyData object out of all the RadiativeSurface objects in the manager.
+        """
+        mesh = PolyData()
+        for radiative_surface_obj in self._radiative_surface_dict.values():
+            mesh += radiative_surface_obj.to_pyvista_polydata()
+        return mesh
 
     ###############################
     # Files and commands generation
@@ -508,7 +523,7 @@ class RadiativeSurfaceManager:
         :param executor_type: the type of executor to use for the parallelization.
         """
         _, _, _, path_output_folder = self.create_vf_simulation_folders(
-            path_output_folder,return_file_path_only=True)
+            path_output_folder, return_file_path_only=True)
         parallel_computation_in_batches_with_return(
             func=object_method_wrapper,
             input_tables=[[radiative_surface_obj] for radiative_surface_obj in

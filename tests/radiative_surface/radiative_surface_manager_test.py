@@ -5,6 +5,7 @@ import os
 import pytest
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from time import time
 
 from src.radiance_comp_vf import RadiativeSurface
 from src.radiance_comp_vf import RadiativeSurfaceManager
@@ -308,7 +309,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         radiative_surface_manager.read_vf_from_radiance_output_files(
             path_output_folder=radiance_test_file_dir)
         vf_witout_hole = \
-        radiative_surface_manager.get_radiative_surface("surface_0").viewed_surfaces_view_factor_list[0]
+            radiative_surface_manager.get_radiative_surface("surface_0").viewed_surfaces_view_factor_list[0]
         # ---------------------------------------------------------
         # Computation with hole
         # ---------------------------------------------------------
@@ -378,7 +379,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         print(f"vf with hole: {vf_with_hole}")
         print(f"vf hole: {vf_hole}")
         print(f"vf_with_hole/(vf_witout_hole-vf_hole): {vf_with_hole / (vf_witout_hole - vf_hole)}")
-        assert abs(1-vf_with_hole / (vf_witout_hole - vf_hole)) < 0.02  # Error margin of 2%
+        assert abs(1 - vf_with_hole / (vf_witout_hole - vf_hole)) < 0.02  # Error margin of 2%
 
     def test_run_vf_computation_with_obstruction_in_octree(self):
         surface_0 = [
@@ -476,7 +477,8 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         radiative_surface_obj_2 = RadiativeSurface.from_vertex_list(vertex_list=surface_2,
                                                                     identifier="surface_2")
         radiative_surface_obj_0.add_viewed_surfaces(["surface_1", "surface_2"])
-        radiative_surface_manager.add_radiative_surfaces([radiative_surface_obj_0,radiative_surface_obj_1, radiative_surface_obj_2])
+        radiative_surface_manager.add_radiative_surfaces(
+            [radiative_surface_obj_0, radiative_surface_obj_1, radiative_surface_obj_2])
         # file generation
         radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
             path_root_simulation_folder=radiance_test_file_dir,
@@ -504,7 +506,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         print(f"vf_s2: {vf_s2}")
         print(f"vf_s1_obs: {vf_s1_obs}")
         print(f"vf_s2_obs: {vf_s2_obs}")
-        print(f"(1-vf_s2_obs/(vf_s2-vf_s1))*100: {(1-vf_s2_obs / (vf_s2 - vf_s1)) * 100}")
+        print(f"(1-vf_s2_obs/(vf_s2-vf_s1))*100: {(1 - vf_s2_obs / (vf_s2 - vf_s1)) * 100}")
 
 
 def test_flatten_table_to_lists():
@@ -514,3 +516,51 @@ def test_flatten_table_to_lists():
     table = [[[1, 2, 3], [4, 5, 6]], [[]], [7, 8, 9]]
     result = flatten_table_to_lists(table)
     assert result == [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+
+
+#########################################
+# Parallelization within class
+#########################################
+
+def test_visibility():
+    radiative_surface_manager = RadiativeSurfaceManager.from_random_rectangles(
+        num_ref_rectangles=1,
+        num_random_rectangle=100,
+        min_size=0.1, max_size=10,
+        max_distance_factor=10,
+        parallel_coaxial_squares=False
+    )
+
+    pyvista_polydata_mesh = radiative_surface_manager.make_pyvista_polydata_mesh_out_of_all_surfaces()
+
+    # Sequential
+    start = time()
+    radiative_surface_manager.get_radiative_surface("ref_0").are_other_surfaces_visible_sequential(
+        radiative_surface_list=[surface for surface in
+                                radiative_surface_manager._radiative_surface_dict.values() if
+                                surface.identifier != "ref_0"],
+        context_pyvista_polydata_mesh=pyvista_polydata_mesh)
+    print(f"Sequential took: {time() - start:.2f} seconds")
+
+    # Multithreading
+    start = time()
+    radiative_surface_manager.get_radiative_surface("ref_0").are_other_surfaces_visible(
+        radiative_surface_list=[surface for surface in
+                                radiative_surface_manager._radiative_surface_dict.values() if
+                                surface.identifier != "ref_0"],
+        context_pyvista_polydata_mesh=pyvista_polydata_mesh,
+        executor_type=ThreadPoolExecutor,
+        num_workers=4,
+        worker_batch_size=10)
+    print(f"Multithreading took: {time() - start:.2f} seconds")
+    # Multiprocessing
+    start = time()
+    radiative_surface_manager.get_radiative_surface("ref_0").are_other_surfaces_visible(
+        radiative_surface_list=[surface for surface in
+                                radiative_surface_manager._radiative_surface_dict.values() if
+                                surface.identifier != "ref_0"],
+        context_pyvista_polydata_mesh=pyvista_polydata_mesh,
+        executor_type=ProcessPoolExecutor,
+        num_workers=4,
+        worker_batch_size=10)
+    print(f"Multithreading took: {time() - start:.2f} seconds")

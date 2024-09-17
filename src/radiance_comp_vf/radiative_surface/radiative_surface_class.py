@@ -6,18 +6,22 @@ import os
 import numpy as np
 import numpy.typing as npt
 
-
 from copy import deepcopy
-
 
 from pyvista import PolyData
 from typing import List
 
-from geoplus import compute_numpy_array_planar_surface_area_and_centroid, contour_numpy_array_planar_surface_with_holes, \
-    compute_numpy_array_planar_surface_corners
+from geoplus import compute_numpy_array_planar_surface_area_and_centroid, \
+    contour_numpy_array_planar_surface_with_holes, \
+    compute_numpy_array_planar_surface_corners,numpy_array_surface_to_polydata,compute_numpy_array_planar_surface_normal
 
 from ..utils import from_vertex_list_to_rad_str, generate_random_rectangles, read_ruflumtx_output_file, \
-    compute_polydata_area, from_polydata_to_vertex_list, are_planar_surfaces_facing_each_other
+    compute_polydata_area, from_polydata_to_vertex_list, are_planar_surfaces_facing_each_other, \
+    is_ray_between_surfaces_intersect_with_context
+
+# parallel_processing, todo: Adust the import
+from ..utils import parallel_computation_in_batches_with_return
+from concurrent.futures import ProcessPoolExecutor
 
 FORBIDDEN_CHARACTERS_NAME_SURFACE_RADIANCE = [' ', '-', '.', ',', ';', ':']
 
@@ -28,7 +32,8 @@ class RadiativeSurface:
     """
 
     def __init__(self, identifier: str):
-        self._identifier: str = self.adjust_identifier_for_radiance(identifier)  # Identifier, adjusted by the setter
+        self._identifier: str = self.adjust_identifier_for_radiance(
+            identifier)  # Identifier, adjusted by the setter
         self._origin_identifier: str = identifier
         # Geometry
         self._vertex_list: npt.NDArray[np.float64] = None
@@ -93,11 +98,12 @@ class RadiativeSurface:
         """
         vertex_array = np.array(vertex_list)
         # Convert the geometry array with wholes to a vertex list
-        contoured_verterx_list = contour_numpy_array_planar_surface_with_holes(contour_numpy_array_planar_surface_with_holes=vertex_list, hole_list=hole_list)
+        contoured_verterx_list = contour_numpy_array_planar_surface_with_holes(
+            surface_boundary=vertex_array, hole_list=hole_list)
 
         # Compute the area, centroid and corner vertices
         radiative_surface_obj = cls(identifier)
-        radiative_surface_obj.set_geometry(vertex_list=contoured_verterx_list)
+        radiative_surface_obj.set_geometry(vertex_array=contoured_verterx_list)
 
         return radiative_surface_obj
 
@@ -130,9 +136,10 @@ class RadiativeSurface:
         """
         if not isinstance(polydata, PolyData):
             raise ValueError(f"The polydata must be a PolyData object, not {type(polydata)}.")
-        radiative_surface_obj = cls(identifier)
         vertex_list = polydata.points.tolist()
-        radiative_surface_obj.set_geometry(vertex_list=vertex_list)
+        radiative_surface_obj = cls(identifier)
+        vertex_array = np.array(vertex_list)
+        radiative_surface_obj.set_geometry(vertex_array=vertex_array)
 
         return radiative_surface_obj
 
@@ -228,6 +235,12 @@ class RadiativeSurface:
     def rad_file_content(self):
         return self._rad_file_content
 
+    def to_pyvista_polydata(self) -> PolyData:
+        """
+        Convert the RadiativeSurface object to a PyVista PolyData object.
+        """
+        return numpy_array_surface_to_polydata(self._vertex_list)
+
     # =========================================================
     # Method to get "processed" properties of the surface
     # =========================================================
@@ -255,17 +268,21 @@ class RadiativeSurface:
     # =========================================================
     # Methods to set the properties of the surface
     # =========================================================
-    def set_geometry(self, vertex_list: List[List[float]]):
+    def set_geometry(self, vertex_array: List[List[float]]):
         """
         Set the geometry of the surface.
-        :param vertex_list: List[List[float]], the list of vertices of the object.
+        :param vertex_array: List[List[float]], the list of vertices of the object.
         """
-        self._vertex_list = vertex_list
-        self._rad_file_content = from_vertex_list_to_rad_str(vertices=vertex_list, identifier=self._identifier)
-        self._area, self._centroid = compute_numpy_array_planar_surface_area_and_centroid(vertex_list=vertex_list)
-        self._corner_vertices = compute_numpy_array_planar_surface_corners(vertex_list=vertex_list)
+        self._vertex_list = vertex_array
+        self._rad_file_content = from_vertex_list_to_rad_str(vertices=vertex_array,
+                                                             identifier=self._identifier)
+        self._area, self._centroid = compute_numpy_array_planar_surface_area_and_centroid(
+            surface_boundary=vertex_array)
+        self._normal = compute_numpy_array_planar_surface_normal(surface_boundary=vertex_array)
+        self._corner_vertices = compute_numpy_array_planar_surface_corners(surface_boundary=vertex_array)
 
-    def set_radiative_properties(self, emissivity: float = 0., reflectivity: float = 0., transmissivity: float = 0.):
+    def set_radiative_properties(self, emissivity: float = 0., reflectivity: float = 0.,
+                                 transmissivity: float = 0.):
         """
         Set the radiative properties of the surface.
         :param emissivity: float, the emissivity of the surface.
@@ -322,9 +339,45 @@ class RadiativeSurface:
     # =========================================================
     # Obstruction Methods
     # =========================================================
-    @classmethod
-    def are_radiative_surfaces_facing_each_other(cls, radiative_surface_1: 'RadiativeSurface',
-                                                 radiative_surface_2: 'RadiativeSurface') -> bool:
+
+    def are_other_surfaces_visible_sequential(self, radiative_surface_list: List['RadiativeSurface'],
+                                   context_pyvista_polydata_mesh: PolyData):
+        """
+
+        :param radiative_surface_list:
+        :param context_pyvista_polydata_mesh:
+        :param other_para_args:
+        :return:
+        """
+        for radiative_surface in radiative_surface_list:
+            visibility = self.are_radiative_surfaces_facing_each_other(self,radiative_surface,
+                                                                      context_pyvista_polydata_mesh)
+            # print(f"Surface {self._identifier} sees surface {radiative_surface._identifier}: {visibility}")
+
+    def are_other_surfaces_visible(self, radiative_surface_list: List['RadiativeSurface'],
+                                   context_pyvista_polydata_mesh: PolyData, executor_type,
+                                   num_workers: int = 1,
+                                   worker_batch_size: int = 1):
+        """
+
+        :param radiative_surface_list:
+        :param context_pyvista_polydata_mesh:
+        :param other_para_args:
+        :return:
+        """
+        visibilities = parallel_computation_in_batches_with_return(
+            func=self.are_radiative_surfaces_facing_each_other,
+            input_tables=[[self, radiative_surface] for radiative_surface in
+                          radiative_surface_list],
+            executor_type=executor_type,
+            worker_batch_size=worker_batch_size,
+            num_workers=num_workers,
+            context_pyvista_polydata_mesh=context_pyvista_polydata_mesh)
+
+    @staticmethod
+    def are_radiative_surfaces_facing_each_other(radiative_surface_1: 'RadiativeSurface',
+                                                 radiative_surface_2: 'RadiativeSurface',
+                                                 context_pyvista_polydata_mesh: PolyData) -> bool:
         """
         Check if two surfaces are facing each other and thus can exchange radiative energy.
         Does not consider obstruction between the two surfaces. Use the do_radiative_surfaces_see_each_other method for
@@ -334,9 +387,12 @@ class RadiativeSurface:
         :param radiative_surface_2: RadiativeSurface, the second surface.
         :return bool: True if the two surfaces are facing each other, False otherwise.
         """
-        return radiative_surface_1._is_facing_other_surface(radiative_surface_2)
+        return [radiative_surface_1._is_seeing_other_surface(radiative_surface_2,
+                                                             context_pyvista_polydata_mesh),
+                radiative_surface_1._identifier, radiative_surface_2._identifier]
 
-    def _is_seeing_other_surface(self, radiative_surface_2: 'RadiativeSurface',context_pyvista_polydata_mesh:PolyData) -> bool:
+    def _is_seeing_other_surface(self, radiative_surface_2: 'RadiativeSurface',
+                                 context_pyvista_polydata_mesh: PolyData) -> bool:
         """
         Check if two surfaces are facing each other.
         :param surface_1: RadiativeSurface, the first surface.
@@ -346,7 +402,12 @@ class RadiativeSurface:
         if not self._is_facing_other_surface(radiative_surface_2):
             return False
         # Ray tracing to check if there is an obstruction
-        self._is_facing_other_surface(radiative_surface_2)
+
+        return is_ray_between_surfaces_intersect_with_context(
+            [self._centroid] + [corner for corner in self._corner_vertices],
+            [radiative_surface_2._centroid] + [corner for corner in
+                                                         radiative_surface_2._corner_vertices],
+            context_polydata_mesh=context_pyvista_polydata_mesh)
 
     def _is_facing_other_surface(self, radiative_surface_2: 'RadiativeSurface') -> bool:
         """
@@ -356,8 +417,10 @@ class RadiativeSurface:
         """
 
         # Check if the normal vectors are facing each other
-        return are_planar_surfaces_facing_each_other(self._corner_vertices, radiative_surface_2._corner_vertices,
-                                                     normal_1=self._normal, normal_2=radiative_surface_2._normal)
+        return are_planar_surfaces_facing_each_other(self._corner_vertices,
+                                                     radiative_surface_2._corner_vertices,
+                                                     normal_1=self._normal,
+                                                     normal_2=radiative_surface_2._normal)
 
     # =========================================================
     # VF related methods
@@ -428,7 +491,8 @@ class RadiativeSurface:
 
         list_output_files = [f for f in os.listdir(path_output_folder) if
                              f.startswith(self.name_output_file())]
-        list_output_files.sort(key=lambda x: int(x.split("_")[-1].split(".")[0]))  # Order the files by batch number
+        list_output_files.sort(
+            key=lambda x: int(x.split("_")[-1].split(".")[0]))  # Order the files by batch number
         for output_file in list_output_files:
             if output_file.startswith(self.name_output_file()):
                 self._viewed_surfaces_view_factor_list.extend(
