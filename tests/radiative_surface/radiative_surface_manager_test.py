@@ -570,38 +570,18 @@ def test_flatten_table_to_lists():
 
 
 def test_visibility():
+    num_random_rectangle = 600
+    num_ref_rectangles = 1
     radiative_surface_manager = RadiativeSurfaceManager.from_random_rectangles(
-        num_ref_rectangles=1,
-        num_random_rectangle=1000,
+        num_ref_rectangles=num_ref_rectangles,
+        num_random_rectangle=num_random_rectangle,
         min_size=1, max_size=1,
-        max_distance_factor=5,
+        max_distance_factor=50,
         parallel_coaxial_squares=False
     )
 
-    print("")
-    # start = time()
-    # pyvista_polydata_mesh = radiative_surface_manager.make_pyvista_polydata_mesh_out_of_all_surfaces()
-    # print(f"Pyvista mesh creation took: {time() - start:.2f} seconds")
 
-    # # Pure sequential
-    # start = time()
-    # radiative_surface_manager.check_surface_visibility_sequential()
-    # print(f"Pure sequential took: {time() - start:.2f} seconds")
 
-    # # Sequential
-    # start = time()
-    # radiative_surface_manager.check_surface_visibility(chunk_size=1,executor_type=ThreadPoolExecutor, num_workers=1)
-    # print(f"Sequential took: {time() - start:.2f} seconds")
-
-    # # Multithreading
-    # start = time()
-    # radiative_surface_manager.check_surface_visibility(chunk_size=10,executor_type=ThreadPoolExecutor, num_workers=4)
-    # print(f"Multithreading took: {time() - start:.2f} seconds")
-    # Multiprocessing
-    for num_worker in [10,16,20]:
-        start = time()
-        radiative_surface_manager.check_surface_visibility(chunk_size=1000//num_worker,executor_type=ProcessPoolExecutor, num_workers=num_worker)
-        print(f"Multithreading with {num_worker} took: {time() - start:.2f} seconds")
-    # start = time()
-    # radiative_surface_manager.check_surface_visibility(chunk_size=10,executor_type=ProcessPoolExecutor, num_workers=10)
-    # print(f"Multithreading took: {time() - start:.2f} seconds")
+    start = time()
+    radiative_surface_manager.check_surface_visibility(mvfc=0.00001,chunk_size=(num_random_rectangle+num_ref_rectangles)//16,executor_type=ProcessPoolExecutor, num_workers=16)
+    print(f"Multithreading took: {time() - start:.2f} seconds")

@@ -255,20 +255,23 @@ class RadiativeSurfaceManager:
             mesh += radiative_surface_obj.to_pyvista_polydata()
         return mesh
 
-
-    def check_surface_visibility_sequential(self):
+    def check_surface_visibility_sequential(self, mvfc):
         """
         Check the visibility between all the RadiativeSurface objects in the manager.
         """
-        mesh=self.make_pyvista_polydata_mesh_out_of_all_surfaces()
+        mesh = self.make_pyvista_polydata_mesh_out_of_all_surfaces()
         visibility_result_dict = {}
         for radiative_surface_obj in self._radiative_surface_dict.values():
-            visibility_result_dict[radiative_surface_obj.identifier]=radiative_surface_obj.are_other_surfaces_visible(
+            visibility_result_dict[
+                radiative_surface_obj.identifier] = radiative_surface_obj.are_other_surfaces_visible(
                 radiative_surface_list=self._radiative_surface_dict.values(),
-                context_pyvista_polydata_mesh=mesh)
+                context_pyvista_polydata_mesh=mesh,
+                mvfc=mvfc)
 
         # print(visibility_result_dict)
+
     def check_surface_visibility(self,
+                                 mvfc,
                                  chunk_size,
                                  executor_type,
                                  num_workers: int = 1):
@@ -281,13 +284,14 @@ class RadiativeSurfaceManager:
             executor_type=executor_type,
             worker_batch_size=1,
             num_workers=num_workers,
-            radiative_surface_manager_obj=self)
+            radiative_surface_manager_obj=self,
+            mvfc=mvfc)
 
         # print(visibility_result_dict_list)
 
     @staticmethod
     def check_visibility_of_surface_chunk(*radiative_surface_id_list,
-                                          radiative_surface_manager_obj: 'RadiativeSurfaceManager'):
+                                          radiative_surface_manager_obj: 'RadiativeSurfaceManager',mvfc):
         """
 
         :param radiative_surface_manager_obj:
@@ -301,7 +305,7 @@ class RadiativeSurfaceManager:
                 radiative_surface_id] = radiative_surface_manager_obj.get_radiative_surface(
                 radiative_surface_id).are_other_surfaces_visible(
                 radiative_surface_list=radiative_surface_manager_obj._radiative_surface_dict.values(),
-                context_pyvista_polydata_mesh=pyvista_polydata_mesh)
+                context_pyvista_polydata_mesh=pyvista_polydata_mesh,mvfc=mvfc)
         return visibility_result_dict
 
     ###############################

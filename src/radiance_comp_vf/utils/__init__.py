@@ -14,3 +14,4 @@ from .utils_pyvista_polydata import *
 from .utils_adjustements_surface_with_holes import *
 from .utils_2d_projection import *
 from .utils_visibility import *
+from .utils_minimum_vf_criterion import does_surfaces_comply_with_minimum_vf_criterion
