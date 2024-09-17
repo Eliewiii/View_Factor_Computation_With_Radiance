@@ -255,6 +255,55 @@ class RadiativeSurfaceManager:
             mesh += radiative_surface_obj.to_pyvista_polydata()
         return mesh
 
+
+    def check_surface_visibility_sequential(self):
+        """
+        Check the visibility between all the RadiativeSurface objects in the manager.
+        """
+        mesh=self.make_pyvista_polydata_mesh_out_of_all_surfaces()
+        visibility_result_dict = {}
+        for radiative_surface_obj in self._radiative_surface_dict.values():
+            visibility_result_dict[radiative_surface_obj.identifier]=radiative_surface_obj.are_other_surfaces_visible(
+                radiative_surface_list=self._radiative_surface_dict.values(),
+                context_pyvista_polydata_mesh=mesh)
+
+        # print(visibility_result_dict)
+    def check_surface_visibility(self,
+                                 chunk_size,
+                                 executor_type,
+                                 num_workers: int = 1):
+        """
+        Check the visibility between all the RadiativeSurface objects in the manager.
+        """
+        visibility_result_dict_list = parallel_computation_in_batches_with_return(
+            func=self.check_visibility_of_surface_chunk,
+            input_tables=split_into_batches(list(self._radiative_surface_dict.keys()), chunk_size),
+            executor_type=executor_type,
+            worker_batch_size=1,
+            num_workers=num_workers,
+            radiative_surface_manager_obj=self)
+
+        # print(visibility_result_dict_list)
+
+    @staticmethod
+    def check_visibility_of_surface_chunk(*radiative_surface_id_list,
+                                          radiative_surface_manager_obj: 'RadiativeSurfaceManager'):
+        """
+
+        :param radiative_surface_manager_obj:
+        :param chunk_size:
+        :return:
+        """
+        pyvista_polydata_mesh = radiative_surface_manager_obj.make_pyvista_polydata_mesh_out_of_all_surfaces()
+        visibility_result_dict = {}
+        for radiative_surface_id in radiative_surface_id_list:
+            visibility_result_dict[
+                radiative_surface_id] = radiative_surface_manager_obj.get_radiative_surface(
+                radiative_surface_id).are_other_surfaces_visible(
+                radiative_surface_list=radiative_surface_manager_obj._radiative_surface_dict.values(),
+                context_pyvista_polydata_mesh=pyvista_polydata_mesh)
+        return visibility_result_dict
+
     ###############################
     # Files and commands generation
     ###############################

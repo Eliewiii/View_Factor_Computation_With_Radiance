@@ -27,3 +27,8 @@ if __name__ == "__main__":
     input_table = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [10, 11, 12]]
     batch_size = 2
     print(split_into_batches(input_table, batch_size))  # [[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]
+
+    input_table= [*range(10)]  # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    batch_size= 3
+    print(split_into_batches(input_table, batch_size))  # [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9]]
+    print(split_into_batches(split_into_batches(input_table, batch_size), batch_size))

@@ -13,7 +13,9 @@ from typing import List
 
 from geoplus import compute_numpy_array_planar_surface_area_and_centroid, \
     contour_numpy_array_planar_surface_with_holes, \
-    compute_numpy_array_planar_surface_corners,numpy_array_surface_to_polydata,compute_numpy_array_planar_surface_normal
+    compute_numpy_array_planar_surface_corners, numpy_array_surface_to_polydata, \
+    compute_numpy_array_planar_surface_normal, \
+    compute_exterior_boundary_of_numpy_array_planar_surface_with_contoured_holes
 
 from ..utils import from_vertex_list_to_rad_str, generate_random_rectangles, read_ruflumtx_output_file, \
     compute_polydata_area, from_polydata_to_vertex_list, are_planar_surfaces_facing_each_other, \
@@ -239,7 +241,8 @@ class RadiativeSurface:
         """
         Convert the RadiativeSurface object to a PyVista PolyData object.
         """
-        return numpy_array_surface_to_polydata(self._vertex_list)
+        return numpy_array_surface_to_polydata(
+            compute_exterior_boundary_of_numpy_array_planar_surface_with_contoured_holes(self._vertex_list))
 
     # =========================================================
     # Method to get "processed" properties of the surface
@@ -340,7 +343,7 @@ class RadiativeSurface:
     # Obstruction Methods
     # =========================================================
 
-    def are_other_surfaces_visible_sequential(self, radiative_surface_list: List['RadiativeSurface'],
+    def are_other_surfaces_visible(self, radiative_surface_list: List['RadiativeSurface'],
                                    context_pyvista_polydata_mesh: PolyData):
         """
 
@@ -349,47 +352,28 @@ class RadiativeSurface:
         :param other_para_args:
         :return:
         """
+        visible_surfaces_id_list = []
         for radiative_surface in radiative_surface_list:
-            visibility = self.are_radiative_surfaces_facing_each_other(self,radiative_surface,
-                                                                      context_pyvista_polydata_mesh)
-            # print(f"Surface {self._identifier} sees surface {radiative_surface._identifier}: {visibility}")
+            if self._is_seeing_other_surface(radiative_surface, context_pyvista_polydata_mesh):
+                visible_surfaces_id_list.append(radiative_surface._identifier)
+        return visible_surfaces_id_list
 
-    def are_other_surfaces_visible(self, radiative_surface_list: List['RadiativeSurface'],
-                                   context_pyvista_polydata_mesh: PolyData, executor_type,
-                                   num_workers: int = 1,
-                                   worker_batch_size: int = 1):
-        """
-
-        :param radiative_surface_list:
-        :param context_pyvista_polydata_mesh:
-        :param other_para_args:
-        :return:
-        """
-        visibilities = parallel_computation_in_batches_with_return(
-            func=self.are_radiative_surfaces_facing_each_other,
-            input_tables=[[self, radiative_surface] for radiative_surface in
-                          radiative_surface_list],
-            executor_type=executor_type,
-            worker_batch_size=worker_batch_size,
-            num_workers=num_workers,
-            context_pyvista_polydata_mesh=context_pyvista_polydata_mesh)
-
-    @staticmethod
-    def are_radiative_surfaces_facing_each_other(radiative_surface_1: 'RadiativeSurface',
-                                                 radiative_surface_2: 'RadiativeSurface',
-                                                 context_pyvista_polydata_mesh: PolyData) -> bool:
-        """
-        Check if two surfaces are facing each other and thus can exchange radiative energy.
-        Does not consider obstruction between the two surfaces. Use the do_radiative_surfaces_see_each_other method for
-           this purpose.
-        Intended for
-        :param radiative_surface_1: RadiativeSurface, the first surface.
-        :param radiative_surface_2: RadiativeSurface, the second surface.
-        :return bool: True if the two surfaces are facing each other, False otherwise.
-        """
-        return [radiative_surface_1._is_seeing_other_surface(radiative_surface_2,
-                                                             context_pyvista_polydata_mesh),
-                radiative_surface_1._identifier, radiative_surface_2._identifier]
+    # @staticmethod
+    # def are_radiative_surfaces_facing_each_other(radiative_surface_1: 'RadiativeSurface',
+    #                                              radiative_surface_2: 'RadiativeSurface',
+    #                                              context_pyvista_polydata_mesh: PolyData) -> bool:
+    #     """
+    #     Check if two surfaces are facing each other and thus can exchange radiative energy.
+    #     Does not consider obstruction between the two surfaces. Use the do_radiative_surfaces_see_each_other method for
+    #        this purpose.
+    #     Intended for
+    #     :param radiative_surface_1: RadiativeSurface, the first surface.
+    #     :param radiative_surface_2: RadiativeSurface, the second surface.
+    #     :return bool: True if the two surfaces are facing each other, False otherwise.
+    #     """
+    #     return [radiative_surface_1._is_seeing_other_surface(radiative_surface_2,
+    #                                                          context_pyvista_polydata_mesh),
+    #             radiative_surface_1._identifier, radiative_surface_2._identifier]
 
     def _is_seeing_other_surface(self, radiative_surface_2: 'RadiativeSurface',
                                  context_pyvista_polydata_mesh: PolyData) -> bool:
@@ -402,11 +386,10 @@ class RadiativeSurface:
         if not self._is_facing_other_surface(radiative_surface_2):
             return False
         # Ray tracing to check if there is an obstruction
-
-        return is_ray_between_surfaces_intersect_with_context(
+        return not is_ray_between_surfaces_intersect_with_context(
             [self._centroid] + [corner for corner in self._corner_vertices],
             [radiative_surface_2._centroid] + [corner for corner in
-                                                         radiative_surface_2._corner_vertices],
+                                               radiative_surface_2._corner_vertices],
             context_polydata_mesh=context_pyvista_polydata_mesh)
 
     def _is_facing_other_surface(self, radiative_surface_2: 'RadiativeSurface') -> bool:

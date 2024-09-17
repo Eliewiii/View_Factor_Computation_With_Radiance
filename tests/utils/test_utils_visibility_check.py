@@ -2,9 +2,13 @@
 
 """
 
-from src.radiance_comp_vf.utils.utils_visibility import are_planar_surfaces_facing_each_other
+import numpy as np
 
+from src.radiance_comp_vf.utils.utils_visibility import are_planar_surfaces_facing_each_other, \
+    is_ray_intersecting_context
 
+surface_0 = np.array(
+    [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0], [0, 0, 0]])
 
 def test_are_planar_surfaces_seeing_each_other():
     vertices_1 = [[1, 2, 3], [4, 5, 6]]
@@ -12,5 +16,6 @@ def test_are_planar_surfaces_seeing_each_other():
     normal_1 = [1, 0, 0]
     normal_2 = [-1, 0, 0]
 
-    result = are_planar_surfaces_facing_each_other(vertices_1, vertices_2, normal_1=normal_1, normal_2=normal_2)
+    result = are_planar_surfaces_facing_each_other(vertices_1, vertices_2, normal_1=normal_1,
+                                                   normal_2=normal_2)
     print(result)

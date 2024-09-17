@@ -522,45 +522,86 @@ def test_flatten_table_to_lists():
 # Parallelization within class
 #########################################
 
+# def test_visibility():
+#     radiative_surface_manager = RadiativeSurfaceManager.from_random_rectangles(
+#         num_ref_rectangles=1,
+#         num_random_rectangle=100,
+#         min_size=0.1, max_size=10,
+#         max_distance_factor=10,
+#         parallel_coaxial_squares=False
+#     )
+#
+#     print("")
+#     start = time()
+#     pyvista_polydata_mesh = radiative_surface_manager.make_pyvista_polydata_mesh_out_of_all_surfaces()
+#     print(f"Pyvista mesh creation took: {time() - start:.2f} seconds")
+#
+#     # Sequential
+#     start = time()
+#     radiative_surface_manager.get_radiative_surface("ref_0").are_other_surfaces_visible_sequential(
+#         radiative_surface_list=[surface for surface in
+#                                 radiative_surface_manager._radiative_surface_dict.values() if
+#                                 surface.identifier != "ref_0"],
+#         context_pyvista_polydata_mesh=pyvista_polydata_mesh)
+#     print(f"Sequential took: {time() - start:.2f} seconds")
+#
+#     # Multithreading
+#     start = time()
+#     radiative_surface_manager.get_radiative_surface("ref_0").are_other_surfaces_visible(
+#         radiative_surface_list=[surface for surface in
+#                                 radiative_surface_manager._radiative_surface_dict.values() if
+#                                 surface.identifier != "ref_0"],
+#         context_pyvista_polydata_mesh=pyvista_polydata_mesh,
+#         executor_type=ThreadPoolExecutor,
+#         num_workers=4,
+#         worker_batch_size=10)
+#     print(f"Multithreading took: {time() - start:.2f} seconds")
+#     # Multiprocessing
+#     start = time()
+#     radiative_surface_manager.get_radiative_surface("ref_0").are_other_surfaces_visible(
+#         radiative_surface_list=[surface for surface in
+#                                 radiative_surface_manager._radiative_surface_dict.values() if
+#                                 surface.identifier != "ref_0"],
+#         context_pyvista_polydata_mesh=pyvista_polydata_mesh,
+#         executor_type=ProcessPoolExecutor,
+#         num_workers=4,
+#         worker_batch_size=10)
+#     print(f"Multithreading took: {time() - start:.2f} seconds")
+
+
 def test_visibility():
     radiative_surface_manager = RadiativeSurfaceManager.from_random_rectangles(
         num_ref_rectangles=1,
-        num_random_rectangle=100,
-        min_size=0.1, max_size=10,
-        max_distance_factor=10,
+        num_random_rectangle=1000,
+        min_size=1, max_size=1,
+        max_distance_factor=5,
         parallel_coaxial_squares=False
     )
 
-    pyvista_polydata_mesh = radiative_surface_manager.make_pyvista_polydata_mesh_out_of_all_surfaces()
+    print("")
+    # start = time()
+    # pyvista_polydata_mesh = radiative_surface_manager.make_pyvista_polydata_mesh_out_of_all_surfaces()
+    # print(f"Pyvista mesh creation took: {time() - start:.2f} seconds")
 
-    # Sequential
-    start = time()
-    radiative_surface_manager.get_radiative_surface("ref_0").are_other_surfaces_visible_sequential(
-        radiative_surface_list=[surface for surface in
-                                radiative_surface_manager._radiative_surface_dict.values() if
-                                surface.identifier != "ref_0"],
-        context_pyvista_polydata_mesh=pyvista_polydata_mesh)
-    print(f"Sequential took: {time() - start:.2f} seconds")
+    # # Pure sequential
+    # start = time()
+    # radiative_surface_manager.check_surface_visibility_sequential()
+    # print(f"Pure sequential took: {time() - start:.2f} seconds")
 
-    # Multithreading
-    start = time()
-    radiative_surface_manager.get_radiative_surface("ref_0").are_other_surfaces_visible(
-        radiative_surface_list=[surface for surface in
-                                radiative_surface_manager._radiative_surface_dict.values() if
-                                surface.identifier != "ref_0"],
-        context_pyvista_polydata_mesh=pyvista_polydata_mesh,
-        executor_type=ThreadPoolExecutor,
-        num_workers=4,
-        worker_batch_size=10)
-    print(f"Multithreading took: {time() - start:.2f} seconds")
+    # # Sequential
+    # start = time()
+    # radiative_surface_manager.check_surface_visibility(chunk_size=1,executor_type=ThreadPoolExecutor, num_workers=1)
+    # print(f"Sequential took: {time() - start:.2f} seconds")
+
+    # # Multithreading
+    # start = time()
+    # radiative_surface_manager.check_surface_visibility(chunk_size=10,executor_type=ThreadPoolExecutor, num_workers=4)
+    # print(f"Multithreading took: {time() - start:.2f} seconds")
     # Multiprocessing
-    start = time()
-    radiative_surface_manager.get_radiative_surface("ref_0").are_other_surfaces_visible(
-        radiative_surface_list=[surface for surface in
-                                radiative_surface_manager._radiative_surface_dict.values() if
-                                surface.identifier != "ref_0"],
-        context_pyvista_polydata_mesh=pyvista_polydata_mesh,
-        executor_type=ProcessPoolExecutor,
-        num_workers=4,
-        worker_batch_size=10)
-    print(f"Multithreading took: {time() - start:.2f} seconds")
+    for num_worker in [10,16,20]:
+        start = time()
+        radiative_surface_manager.check_surface_visibility(chunk_size=1000//num_worker,executor_type=ProcessPoolExecutor, num_workers=num_worker)
+        print(f"Multithreading with {num_worker} took: {time() - start:.2f} seconds")
+    # start = time()
+    # radiative_surface_manager.check_surface_visibility(chunk_size=10,executor_type=ProcessPoolExecutor, num_workers=10)
+    # print(f"Multithreading took: {time() - start:.2f} seconds")
