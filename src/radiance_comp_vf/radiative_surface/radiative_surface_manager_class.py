@@ -135,9 +135,9 @@ class RadiativeSurfaceManager:
 
         return radiative_surface_manager
 
-    ##############################
+    #----------------------------------------------------------
     # Core Functions
-    ###############################
+    #----------------------------------------------------------
 
     def to_pkl(self, path_folder: str, file_name: str = "radiative_surface_manager.pkl"):
         """
@@ -161,12 +161,16 @@ class RadiativeSurfaceManager:
             radiative_surface_manager = pickle.load(f)
         return radiative_surface_manager
 
-    # =========================================================
+    #----------------------------------------------------------
     # Properties
-    # =========================================================
+    #----------------------------------------------------------
     @property
     def sim_parameter_dict(self):
         return deepcopy(self._sim_parameter_dict)
+
+    # -----------------------------------------------------------------
+    # Add surfaces
+    # -----------------------------------------------------------------
 
     def add_radiative_surfaces(self, *args, check_id_uniqueness=True):
         """
@@ -198,6 +202,9 @@ class RadiativeSurfaceManager:
                 f"The RadiativeSurface id {radiative_surface.identifier} object already exists in the surface manager.")
         self._radiative_surface_dict[radiative_surface.identifier] = radiative_surface
 
+    # -----------------------------------------------------------------
+    # Access to the surface
+    # -----------------------------------------------------------------
     def get_radiative_surface(self, identifier: str) -> RadiativeSurface:
         """
         Get a RadiativeSurface object from the manager.
@@ -242,22 +249,38 @@ class RadiativeSurfaceManager:
                         f"The viewed surface {viewed_surface_id} of the surface {radiative_surface_obj.identifier} "
                         f"is not in the radiative surface manager.")
 
-    ###############################
+    # -----------------------------------------------------------------
     # Visibility check
-    ###############################
+    # -----------------------------------------------------------------
 
-    def make_pyvista_polydata_mesh_out_of_all_surfaces(self):
+    def check_surface_visibility(self,
+                                 mvfc:float=0.000001,
+                                 num_workers: int = 0):
         """
-        Make a PyVista PolyData object out of all the RadiativeSurface objects in the manager.
+        Check the visibility between all the RadiativeSurface objects in the manager.
+        :param mvfc: float, the minimum visibility factor criterion to consider the surface as visible.
+        :param num_workers: int, the number of workers to use for the parallelization.
         """
-        mesh = PolyData()
-        for radiative_surface_obj in self._radiative_surface_dict.values():
-            mesh += radiative_surface_obj.to_pyvista_polydata()
-        return mesh
+        # todo: set the chunk size to nb_surface//num_workers, and set num worker to nb thread
+        if num_workers == 0:
+            num_workers = os.cpu_count()
+
+        chunk_size = max(1, len(self._radiative_surface_dict) // num_workers)
+        visibility_result_dict_list = parallel_computation_in_batches_with_return(
+            func=self._check_visibility_of_surface_chunk,
+            input_tables=split_into_batches(list(self._radiative_surface_dict.keys()), chunk_size),
+            executor_type=ProcessPoolExecutor,
+            worker_batch_size=1,
+            num_workers=num_workers,
+            radiative_surface_manager_obj=self,
+            mvfc=mvfc)
+
+        # todo: redistribute the results to the radiative surface objects
 
     def check_surface_visibility_sequential(self, mvfc):
         """
         Check the visibility between all the RadiativeSurface objects in the manager.
+        todo: remove function eventually
         """
         mesh = self.make_pyvista_polydata_mesh_out_of_all_surfaces()
         visibility_result_dict = {}
@@ -270,27 +293,8 @@ class RadiativeSurfaceManager:
 
         # print(visibility_result_dict)
 
-    def check_surface_visibility(self,
-                                 mvfc,
-                                 chunk_size,
-                                 executor_type,
-                                 num_workers: int = 1):
-        """
-        Check the visibility between all the RadiativeSurface objects in the manager.
-        """
-        visibility_result_dict_list = parallel_computation_in_batches_with_return(
-            func=self.check_visibility_of_surface_chunk,
-            input_tables=split_into_batches(list(self._radiative_surface_dict.keys()), chunk_size),
-            executor_type=executor_type,
-            worker_batch_size=1,
-            num_workers=num_workers,
-            radiative_surface_manager_obj=self,
-            mvfc=mvfc)
-
-        # print(visibility_result_dict_list)
-
     @staticmethod
-    def check_visibility_of_surface_chunk(*radiative_surface_id_list,
+    def _check_visibility_of_surface_chunk(*radiative_surface_id_list,
                                           radiative_surface_manager_obj: 'RadiativeSurfaceManager',mvfc):
         """
 
@@ -307,6 +311,15 @@ class RadiativeSurfaceManager:
                 radiative_surface_list=radiative_surface_manager_obj._radiative_surface_dict.values(),
                 context_pyvista_polydata_mesh=pyvista_polydata_mesh,mvfc=mvfc)
         return visibility_result_dict
+
+    def _make_pyvista_polydata_mesh_out_of_all_surfaces(self):
+        """
+        Make a PyVista PolyData object out of all the RadiativeSurface objects in the manager.
+        """
+        mesh = PolyData()
+        for radiative_surface_obj in self._radiative_surface_dict.values():
+            mesh += radiative_surface_obj.to_pyvista_polydata()
+        return mesh
 
     ###############################
     # Files and commands generation

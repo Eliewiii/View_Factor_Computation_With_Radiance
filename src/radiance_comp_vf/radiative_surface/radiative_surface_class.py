@@ -17,13 +17,10 @@ from geoplus import compute_numpy_array_planar_surface_area_and_centroid, \
     compute_numpy_array_planar_surface_normal, \
     compute_exterior_boundary_of_numpy_array_planar_surface_with_contoured_holes
 
-from ..utils import from_vertex_list_to_rad_str, generate_random_rectangles, read_ruflumtx_output_file, \
-    compute_polydata_area, from_polydata_to_vertex_list, are_planar_surfaces_facing_each_other, \
-    is_ray_between_surfaces_intersect_with_context, does_surfaces_comply_with_minimum_vf_criterion
+from ..utils import from_vertex_list_to_rad_str, read_ruflumtx_output_file, \
+    are_planar_surfaces_facing_each_other, is_ray_between_surfaces_intersect_with_context, does_surfaces_comply_with_minimum_vf_criterion
 
-# parallel_processing, todo: Adust the import
-from ..utils import parallel_computation_in_batches_with_return
-from concurrent.futures import ProcessPoolExecutor
+
 
 FORBIDDEN_CHARACTERS_NAME_SURFACE_RADIANCE = [' ', '-', '.', ',', ';', ':']
 
