@@ -11,7 +11,6 @@ from copy import deepcopy
 from pyvista import PolyData
 from typing import List
 
-
 from geoplus import compute_numpy_array_planar_surface_area_and_centroid, \
     contour_numpy_array_planar_surface_with_holes, \
     compute_numpy_array_planar_surface_corners, numpy_array_surface_to_polydata, \
@@ -19,9 +18,8 @@ from geoplus import compute_numpy_array_planar_surface_area_and_centroid, \
     compute_exterior_boundary_of_numpy_array_planar_surface_with_contoured_holes
 
 from ..utils import from_vertex_list_to_rad_str, read_ruflumtx_output_file, \
-    are_planar_surfaces_facing_each_other, is_ray_between_surfaces_intersect_with_context, does_surfaces_comply_with_minimum_vf_criterion
-
-
+    are_planar_surfaces_facing_each_other, is_ray_between_surfaces_intersect_with_context, \
+    does_surfaces_comply_with_minimum_vf_criterion
 
 FORBIDDEN_CHARACTERS_NAME_SURFACE_RADIANCE = [' ', '-', '.', ',', ';', ':']
 
@@ -342,67 +340,62 @@ class RadiativeSurface:
     # =========================================================
 
     def are_other_surfaces_visible(self, radiative_surface_list: List['RadiativeSurface'],
-                                   context_pyvista_polydata_mesh: PolyData, mvfc: float):
+                                   context_pyvista_polydata_mesh: PolyData, mvfc: float, ray_traced_check: bool = True,
+                                   ray_tracing_among_all_all_corners: bool = False) -> List[str]:
         """
-
-        :param radiative_surface_list:
-        :param context_pyvista_polydata_mesh:
-        :param other_para_args:
-        :return:
+        Check if the other surfaces are visible from the current surface.
+        This method is intended to be used from a RadiativeSurfaceManager object only, all the inout checks are
+        performed in the manager.
+        :param radiative_surface_list: List[RadiativeSurface], the list of radiative surfaces to check visibility with.
+        :param context_pyvista_polydata_mesh: PolyData, Mesh containing all the  context geometry for obstruction check.
+        :param mvfc: Minimum view factor criterion not to check visibility between surfaces if VF too small to be
+            considered or even computed (not enough rays to compute the VF without huge error). If None, the mvfc check
+            is not performed.
+        :param ray_traced_check: bool, if True, check visibility with ray tracing.
+        :param ray_tracing_among_all_all_corners: bool, if True and ray_traced_check is True, check the visibility
+            between all the corners of the surfaces, and not only the center of face_1 to the center and corners of face_2.
+        :return: List[str], the list of identifiers of the visible surfaces.
         """
         visible_surfaces_id_list = []
         for radiative_surface in radiative_surface_list:
-            if self._is_seeing_other_surface(radiative_surface, context_pyvista_polydata_mesh, mvfc):
+            if self._is_seeing_other_surface(radiative_surface=radiative_surface,
+                                             context_pyvista_polydata_mesh=context_pyvista_polydata_mesh, mvfc=mvfc,
+                                             ray_traced_check=ray_traced_check,
+                                             ray_tracing_among_all_all_corners=ray_tracing_among_all_all_corners):
                 visible_surfaces_id_list.append(radiative_surface._identifier)
         return visible_surfaces_id_list
 
-    # @staticmethod
-    # def are_radiative_surfaces_facing_each_other(radiative_surface_1: 'RadiativeSurface',
-    #                                              radiative_surface_2: 'RadiativeSurface',
-    #                                              context_pyvista_polydata_mesh: PolyData) -> bool:
-    #     """
-    #     Check if two surfaces are facing each other and thus can exchange radiative energy.
-    #     Does not consider obstruction between the two surfaces. Use the do_radiative_surfaces_see_each_other method for
-    #        this purpose.
-    #     Intended for
-    #     :param radiative_surface_1: RadiativeSurface, the first surface.
-    #     :param radiative_surface_2: RadiativeSurface, the second surface.
-    #     :return bool: True if the two surfaces are facing each other, False otherwise.
-    #     """
-    #     return [radiative_surface_1._is_seeing_other_surface(radiative_surface_2,
-    #                                                          context_pyvista_polydata_mesh),
-    #             radiative_surface_1._identifier, radiative_surface_2._identifier]
-
-    def _is_seeing_other_surface(self, radiative_surface_2: 'RadiativeSurface',
-                                 context_pyvista_polydata_mesh: PolyData, mvfc: float) -> bool:
+    def _is_seeing_other_surface(self, radiative_surface: 'RadiativeSurface',
+                                 context_pyvista_polydata_mesh: PolyData, mvfc: float, ray_traced_check: bool = True,
+                                 ray_tracing_among_all_all_corners: bool = False) -> bool:
         """
         Check if two surfaces are facing each other.
-        :param surface_1: RadiativeSurface, the first surface.
         :param surface_2: RadiativeSurface, the second surface.
         """
         # Check visibility without obstruction
-        if not self._is_facing_other_surface(radiative_surface_2):
+        if not self._is_facing_other_surface(radiative_surface):
             return False
         # Check minimum VF criterion
-        if mvfc is not None and not does_surfaces_comply_with_minimum_vf_criterion(area_1=self._area, centroid_1=self._centroid,
-                                                              area_2=radiative_surface_2._area,
-                                                              centroid_2=radiative_surface_2._centroid,
-                                                              mvfc=mvfc):
+        if mvfc is not None and not does_surfaces_comply_with_minimum_vf_criterion(area_1=self._area,
+                                                                                   centroid_1=self._centroid,
+                                                                                   area_2=radiative_surface._area,
+                                                                                   centroid_2=radiative_surface._centroid,
+                                                                                   mvfc=mvfc):
             return False
         # Ray tracing to check if there is an obstruction
         return not is_ray_between_surfaces_intersect_with_context(
             [self._centroid],
-            [radiative_surface_2._centroid] + [corner for corner in
-                                               radiative_surface_2._corner_vertices],
+            [radiative_surface._centroid] + [corner for corner in
+                                             radiative_surface._corner_vertices],
             context_polydata_mesh=context_pyvista_polydata_mesh)
 
         # return not is_ray_between_surfaces_intersect_with_context(
         #     [self._centroid] + [corner for corner in self._corner_vertices],
-        #     [radiative_surface_2._centroid] + [corner for corner in
-        #                                        radiative_surface_2._corner_vertices],
+        #     [radiative_surface._centroid] + [corner for corner in
+        #                                        radiative_surface._corner_vertices],
         #     context_polydata_mesh=context_pyvista_polydata_mesh)
 
-    def _is_facing_other_surface(self, radiative_surface_2: 'RadiativeSurface') -> bool:
+    def _is_facing_other_surface(self, radiative_surface: 'RadiativeSurface') -> bool:
         """
         Check if two surfaces are facing each other.
         :param surface_1: RadiativeSurface, the first surface.
@@ -411,9 +404,9 @@ class RadiativeSurface:
 
         # Check if the normal vectors are facing each other
         return are_planar_surfaces_facing_each_other(self._corner_vertices,
-                                                     radiative_surface_2._corner_vertices,
+                                                     radiative_surface._corner_vertices,
                                                      normal_1=self._normal,
-                                                     normal_2=radiative_surface_2._normal)
+                                                     normal_2=radiative_surface._normal)
 
     # =========================================================
     # VF related methods

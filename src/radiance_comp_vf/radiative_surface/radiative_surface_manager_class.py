@@ -6,9 +6,9 @@ import os
 import pickle
 import warnings
 
+from math import ceil
 from typing import List
 from copy import deepcopy
-
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from pyvista import PolyData
@@ -179,7 +179,6 @@ class RadiativeSurfaceManager:
     # -----------------------------------------------------------------
     # Add surfaces
     # -----------------------------------------------------------------
-
     def add_radiative_surfaces(self, *args, check_id_uniqueness=True):
         """
         Add multiple RadiativeSurface objects to the manager.
@@ -262,23 +261,30 @@ class RadiativeSurfaceManager:
     # -----------------------------------------------------------------
 
     def check_surface_visibility(self,
-                                 mvfc: float = None,
-
                                  num_workers: int = 0,
-                                 ray_traced_check: bool = True
-                                 ):
+                                 mvfc: float = None,
+                                 ray_traced_check: bool = True,
+                                 ray_tracing_among_all_all_corners: bool = False):
 
         """
         Check the visibility between all the RadiativeSurface objects in the manager.
-        :param mvfc: float, the minimum visibility factor criterion to consider the surface as visible.
         :param num_workers: int, the number of workers to use for the parallelization.
+        :param mvfc: float, the minimum visibility factor criterion to consider the surface as visible.
+        :param ray_traced_check: bool, if True, use the ray tracing method to check the visibility.
+        :param ray_tracing_among_all_all_corners: bool, if True and ray_traced_check is True, check the visibility
+            between all the corners of the surfaces, and not only the center of face_1 to the center and corners of face_2.
         """
         # todo: set the chunk size to nb_surface//num_workers, and set num worker to nb thread
-        num_workers = self.check_num_worker_valid(num_workers, worker_type="cpu")
-        mvfc = self.check_min_vf_criterion(mvfc)
-
-
-        chunk_size = max(1, len(self._radiative_surface_dict) // num_workers)
+        num_workers = self._check_num_worker_valid(num_workers, worker_type="cpu")
+        mvfc = self._check_min_vf_criterion(mvfc)
+        """
+        This function necessarily uses multiprocessing, as the visibility check is a CPU-bound task.
+        And as the context_polydata_mesh, required for the visibility check, need to be computed at each new process 
+        (as ut cannot be pickled), it should be better in general for each worker to run one process. The chunk size
+        is then set accordingly with ceil to have for sure num_workers processes, to avoid generating more pyvista mesh 
+        than needed.
+        """
+        chunk_size = max(1, ceil(len(self._radiative_surface_dict) / num_workers))
         visibility_result_dict_list = parallel_computation_in_batches_with_return(
             func=self._check_visibility_of_surface_chunk,
             input_tables=split_into_batches(list(self._radiative_surface_dict.keys()), chunk_size),
@@ -286,7 +292,9 @@ class RadiativeSurfaceManager:
             worker_batch_size=1,
             num_workers=num_workers,
             radiative_surface_manager_obj=self,
-            mvfc=mvfc)
+            mvfc=mvfc,
+            ray_traced_check=ray_traced_check,
+            ray_tracing_among_all_all_corners=ray_tracing_among_all_all_corners)
 
         # todo: redistribute the results to the radiative surface objects
 
@@ -295,7 +303,8 @@ class RadiativeSurfaceManager:
         Check the visibility between all the RadiativeSurface objects in the manager.
         todo: remove function eventually
         """
-        mesh = self.make_pyvista_polydata_mesh_out_of_all_surfaces()
+        mvfc = self.check_min_vf_criterion(mvfc)
+        mesh = self._make_pyvista_polydata_mesh_out_of_all_surfaces()
         visibility_result_dict = {}
         for radiative_surface_obj in self._radiative_surface_dict.values():
             visibility_result_dict[
@@ -307,36 +316,46 @@ class RadiativeSurfaceManager:
         # print(visibility_result_dict)
 
     @staticmethod
-    def _check_visibility_of_surface_chunk(*radiative_surface_id_list,
-                                           radiative_surface_manager_obj: 'RadiativeSurfaceManager', mvfc):
+    def _check_visibility_of_surface_chunk(*radiative_surface_id_list: List[str],
+                                           radiative_surface_manager_obj: 'RadiativeSurfaceManager', mvfc: float,
+                                           ray_traced_check: bool,
+                                           ray_tracing_among_all_all_corners: bool):
         """
-
-        :param radiative_surface_manager_obj:
-        :param chunk_size:
+        :param radiative_surface_id_list: List[str], the list of the RadiativeSurface identifiers to check the visibility from.
+        :param radiative_surface_manager_obj: RadiativeSurfaceManager, the RadiativeSurfaceManager object.
+        :param mvfc: float, the minimum visibility factor criterion to consider the surface as visible.
+        :param ray_traced_check: bool, if True, use the ray tracing method to check the visibility.
+        :param ray_tracing_among_all_all_corners: bool, if True and ray_traced_check is True, check the visibility
+            between all the corners of the surfaces, and not only the center of face_1 to the center and corners of face_2.
         :return:
         """
-        pyvista_polydata_mesh = radiative_surface_manager_obj.make_pyvista_polydata_mesh_out_of_all_surfaces()
+        if ray_traced_check:
+            pyvista_polydata_mesh = radiative_surface_manager_obj._make_pyvista_polydata_mesh_out_of_all_surfaces()
+        else:
+            pyvista_polydata_mesh = None
         visibility_result_dict = {}
         for radiative_surface_id in radiative_surface_id_list:
             visibility_result_dict[
                 radiative_surface_id] = radiative_surface_manager_obj.get_radiative_surface(
                 radiative_surface_id).are_other_surfaces_visible(
                 radiative_surface_list=radiative_surface_manager_obj._radiative_surface_dict.values(),
-                context_pyvista_polydata_mesh=pyvista_polydata_mesh, mvfc=mvfc)
+                context_pyvista_polydata_mesh=pyvista_polydata_mesh, mvfc=mvfc, ray_traced_check=ray_traced_check,
+                ray_tracing_among_all_all_corners=ray_tracing_among_all_all_corners)
         return visibility_result_dict
 
     def _make_pyvista_polydata_mesh_out_of_all_surfaces(self):
         """
-        Make a PyVista PolyData object out of all the RadiativeSurface objects in the manager.
+        Make a PyVista PolyData object out of all the RadiativeSurface objects in the manager, in order to use it as
+        an obstructive context for the visibility check.
         """
         mesh = PolyData()
         for radiative_surface_obj in self._radiative_surface_dict.values():
             mesh += radiative_surface_obj.to_pyvista_polydata()
         return mesh
 
-    ###############################
+    # -----------------------------------------------------------------
     # Files and commands generation
-    ###############################
+    # -----------------------------------------------------------------
     def generate_radiance_inputs_for_all_surfaces_in_parallel(self, path_root_simulation_folder: str,
                                                               num_receiver_per_file: int = 1,
                                                               num_workers=1, worker_batch_size=1,
@@ -664,7 +683,7 @@ class RadiativeSurfaceManager:
     # Check methods
     # ----------------------------------------------------------
 
-    def check_num_worker_valid(self, num_worker, worker_type: str) -> int:
+    def _check_num_worker_valid(self, num_worker, worker_type: str) -> int:
         """
         Check if the number of workers for parallel computing is valid.
         :param num_worker: The number of workers requested by the user.
@@ -691,7 +710,7 @@ class RadiativeSurfaceManager:
         return num_worker
 
     @staticmethod
-    def check_min_vf_criterion(min_vf_criterion: float) -> float:
+    def _check_min_vf_criterion(min_vf_criterion: float) -> float:
         """
         Check if the minimum view factor criterion is valid.
         :param min_vf_criterion: float, the minimum view factor criterion.
