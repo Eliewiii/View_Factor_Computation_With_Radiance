@@ -11,6 +11,7 @@ from copy import deepcopy
 from pyvista import PolyData
 from typing import List
 
+
 from geoplus import compute_numpy_array_planar_surface_area_and_centroid, \
     contour_numpy_array_planar_surface_with_holes, \
     compute_numpy_array_planar_surface_corners, numpy_array_surface_to_polydata, \
@@ -383,7 +384,7 @@ class RadiativeSurface:
         if not self._is_facing_other_surface(radiative_surface_2):
             return False
         # Check minimum VF criterion
-        if not does_surfaces_comply_with_minimum_vf_criterion(area_1=self._area, centroid_1=self._centroid,
+        if mvfc is not None and not does_surfaces_comply_with_minimum_vf_criterion(area_1=self._area, centroid_1=self._centroid,
                                                               area_2=radiative_surface_2._area,
                                                               centroid_2=radiative_surface_2._centroid,
                                                               mvfc=mvfc):

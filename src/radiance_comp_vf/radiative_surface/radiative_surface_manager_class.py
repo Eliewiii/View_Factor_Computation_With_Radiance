@@ -4,6 +4,7 @@ Class that manages the whole LWR simulation, especially the RadiativeSurface obj
 
 import os
 import pickle
+import warnings
 
 from typing import List
 from copy import deepcopy
@@ -24,6 +25,13 @@ class RadiativeSurfaceManager:
     """
     Class that manages the whole RadiativeSurface objects.
     """
+    # Parameters for the workers for parallel computation
+    DEFAULT_WORKER_CPU_BOUND = os.cpu_count()
+    DEFAULT_WORKER_IO_BOUND = os.cpu_count() * 2
+    CPU_BOUND_LIMIT_MULTIPLIER = 1.5
+    IO_BOUND_LIMIT_MULTIPLIER = 3
+    MAX_WORKER_CPU_BOUND = os.cpu_count() * CPU_BOUND_LIMIT_MULTIPLIER
+    MAX_WORKER_IO_BOUND = os.cpu_count() * IO_BOUND_LIMIT_MULTIPLIER
 
     def __init__(self):
         self._radiative_surface_dict: dict = {}
@@ -135,9 +143,9 @@ class RadiativeSurfaceManager:
 
         return radiative_surface_manager
 
-    #----------------------------------------------------------
+    # ----------------------------------------------------------
     # Core Functions
-    #----------------------------------------------------------
+    # ----------------------------------------------------------
 
     def to_pkl(self, path_folder: str, file_name: str = "radiative_surface_manager.pkl"):
         """
@@ -161,9 +169,9 @@ class RadiativeSurfaceManager:
             radiative_surface_manager = pickle.load(f)
         return radiative_surface_manager
 
-    #----------------------------------------------------------
+    # ----------------------------------------------------------
     # Properties
-    #----------------------------------------------------------
+    # ----------------------------------------------------------
     @property
     def sim_parameter_dict(self):
         return deepcopy(self._sim_parameter_dict)
@@ -254,16 +262,21 @@ class RadiativeSurfaceManager:
     # -----------------------------------------------------------------
 
     def check_surface_visibility(self,
-                                 mvfc:float=0.000001,
-                                 num_workers: int = 0):
+                                 mvfc: float = None,
+
+                                 num_workers: int = 0,
+                                 ray_traced_check: bool = True
+                                 ):
+
         """
         Check the visibility between all the RadiativeSurface objects in the manager.
         :param mvfc: float, the minimum visibility factor criterion to consider the surface as visible.
         :param num_workers: int, the number of workers to use for the parallelization.
         """
         # todo: set the chunk size to nb_surface//num_workers, and set num worker to nb thread
-        if num_workers == 0:
-            num_workers = os.cpu_count()
+        num_workers = self.check_num_worker_valid(num_workers, worker_type="cpu")
+        mvfc = self.check_min_vf_criterion(mvfc)
+
 
         chunk_size = max(1, len(self._radiative_surface_dict) // num_workers)
         visibility_result_dict_list = parallel_computation_in_batches_with_return(
@@ -295,7 +308,7 @@ class RadiativeSurfaceManager:
 
     @staticmethod
     def _check_visibility_of_surface_chunk(*radiative_surface_id_list,
-                                          radiative_surface_manager_obj: 'RadiativeSurfaceManager',mvfc):
+                                           radiative_surface_manager_obj: 'RadiativeSurfaceManager', mvfc):
         """
 
         :param radiative_surface_manager_obj:
@@ -309,7 +322,7 @@ class RadiativeSurfaceManager:
                 radiative_surface_id] = radiative_surface_manager_obj.get_radiative_surface(
                 radiative_surface_id).are_other_surfaces_visible(
                 radiative_surface_list=radiative_surface_manager_obj._radiative_surface_dict.values(),
-                context_pyvista_polydata_mesh=pyvista_polydata_mesh,mvfc=mvfc)
+                context_pyvista_polydata_mesh=pyvista_polydata_mesh, mvfc=mvfc)
         return visibility_result_dict
 
     def _make_pyvista_polydata_mesh_out_of_all_surfaces(self):
@@ -646,6 +659,52 @@ class RadiativeSurfaceManager:
         :return: float, the adjusted view factor from surface 1 to surface 2.
         """
         return vf_2_1 * area_2 / area_1
+
+    # ----------------------------------------------------------
+    # Check methods
+    # ----------------------------------------------------------
+
+    def check_num_worker_valid(self, num_worker, worker_type: str) -> int:
+        """
+        Check if the number of workers for parallel computing is valid.
+        :param num_worker: The number of workers requested by the user.
+        :param worker_type: str, the type of worker, either 'cpu' or 'io', having different limits.
+        :return: adjusted number of workers if needed
+        """
+        if worker_type == "cpu":
+            max_worker = self.MAX_WORKER_CPU_BOUND
+            defaul_worker = self.DEFAULT_WORKER_CPU_BOUND
+        elif worker_type == "io":
+            max_worker = self.MAX_WORKER_IO_BOUND
+            defaul_worker = self.DEFAULT_WORKER_IO_BOUND
+        else:
+            raise ValueError("The worker type is invalid. It must be either 'cpu' or 'io'.")
+        if num_worker == 0 or num_worker is None:
+            num_worker = defaul_worker
+        elif max_worker < num_worker:
+            warnings.warn(f"The number of workers requested is too high and will decrease the performances."
+                          f"It will be set to {max_worker} instead.")
+            num_worker = max_worker
+        elif num_worker < 0 or isinstance(num_worker, float):
+            raise ValueError(f"The number is invalid. It must be an integer between 0 and {max_worker} "
+                             f"(maximum processes that your computer can handle before degrading performances.")
+        return num_worker
+
+    @staticmethod
+    def check_min_vf_criterion(min_vf_criterion: float) -> float:
+        """
+        Check if the minimum view factor criterion is valid.
+        :param min_vf_criterion: float, the minimum view factor criterion.
+        :return: float, the minimum view factor criterion.
+        """
+        if min_vf_criterion is None:
+            pass
+        elif not isinstance(min_vf_criterion, float):
+            raise ValueError("The minimum view factor criterion must be a float or None")
+        elif min_vf_criterion < 0 or min_vf_criterion > 1:
+            raise ValueError("The minimum view factor criterion must be between 0 and 1.")
+
+        return min_vf_criterion
 
 
 def flatten_table_to_lists(table):
