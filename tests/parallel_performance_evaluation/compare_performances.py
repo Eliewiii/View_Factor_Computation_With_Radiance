@@ -5,6 +5,7 @@ This script is used to compare the performances of the parallel version of the c
 import os
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from time import time
+from math import ceil
 
 from src.radiance_comp_vf import RadiativeSurfaceManager
 
@@ -57,22 +58,26 @@ def run_sim_without_outputs(radiative_surface_manager,nb_rays:int,
 
 def main():
     # Geometry creation
-    num_ref_rectangles = 200
+    num_ref_rectangles = 400
     radiative_surface_manager=make_geo(num_ref_rectangles)
 
     # Parallel parameters
+    num_receiver_per_file = 100
+
     num_workers = 16
-    worker_batch_size = 10
+    # worker_batch_size = ceil(ceil((num_ref_rectangles-1) // 100)*num_ref_rectangles/num_workers)
+    # print(f"worker_batch_size : {worker_batch_size}")
+    worker_batch_size = 50
 
     # VF parameters
-    nb_rays = 10000
+    nb_rays = 500000
 
 
     # Make input files
     file_dir = os.path.dirname(os.path.abspath(__file__))
     path_root_simulation_folder = os.path.join(file_dir, "outputs")
 
-    num_receiver_per_file = 100
+
     make_inputs(radiative_surface_manager,path_root_simulation_folder,
             num_receiver_per_file)
 
@@ -86,6 +91,18 @@ def main():
         )
     dur_with_outputs_threading = time() - start
     print(f"Simulation with outputs and threading : {dur_with_outputs_threading}")
+
+    # Simulation with outputs and Threading and double the number of workers
+    start = time()
+    run_sim_with_outputs(radiative_surface_manager,
+            nb_rays=nb_rays,
+            num_workers=num_workers*2,
+            worker_batch_size=worker_batch_size,
+            executor_type=ProcessPoolExecutor
+        )
+    dur_with_outputs_threading = time() - start
+    print(f"Simulation with outputs and threading : {dur_with_outputs_threading}")
+
     # Simulation with outputs and multiprocessing
     start = time()
     run_sim_with_outputs(radiative_surface_manager,
@@ -107,6 +124,29 @@ def main():
         )
     dur_without_outputs_threading = time() - start
     print(f"Simulation without outputs and threading : {dur_without_outputs_threading}")
+
+    # Simulation without outputs and Threading and double the number of workers
+    start = time()
+    run_sim_without_outputs(radiative_surface_manager,
+            nb_rays=nb_rays,
+            num_workers=num_workers*2,
+            worker_batch_size=worker_batch_size,
+            executor_type=ProcessPoolExecutor
+        )
+    dur_without_outputs_threading = time() - start
+    print(f"Simulation without outputs and threading x2 : {dur_without_outputs_threading}")
+
+    # Simulation without outputs and Threading and double the number of workers
+    start = time()
+    run_sim_without_outputs(radiative_surface_manager,
+            nb_rays=nb_rays,
+            num_workers=num_workers*3,
+            worker_batch_size=worker_batch_size,
+            executor_type=ProcessPoolExecutor
+        )
+    dur_without_outputs_threading = time() - start
+    print(f"Simulation without outputs and threading x3 : {dur_without_outputs_threading}")
+
     # Simulation without outputs and multiprocessing
     start = time()
     run_sim_without_outputs(radiative_surface_manager,

@@ -306,7 +306,7 @@ class RadiativeSurfaceManager:
         Check the visibility between all the RadiativeSurface objects in the manager.
         todo: remove function eventually
         """
-        mvfc = self.check_min_vf_criterion(mvfc)
+        mvfc = self._check_min_vf_criterion(mvfc)
         mesh = self._make_pyvista_polydata_mesh_out_of_all_surfaces()
         visibility_result_dict = {}
         for radiative_surface_obj in self._radiative_surface_dict.values():
