@@ -69,6 +69,31 @@ def write_radiance_command_for_vf_computation(path_emitter_rad_file: str, path_r
     return command
 
 
+def write_radiance_command_for_vf_computation_without_output(path_emitter_rad_file: str, path_receiver_rad_file: str,
+                                              path_octree_context: str = None,
+                                              nb_rays: int = 10000):
+    """
+    todo: test function
+    Compute the view factor between 2 rectangles with Radiance.
+    :param path_emitter_rad_file: str, the path of the emitter Radiance file.
+    :param path_receiver_rad_file: str, the path of the receiver Radiance file.
+    :param path_octree_context: str, the path of the octree file.
+    :param nb_rays: int, the number of rays to use.
+    """
+    # Check if the paths of emitter and receiver files exist
+    check_file_exist(path_emitter_rad_file)
+    check_file_exist(path_receiver_rad_file)
+    # Check if the octree file exists if provided
+    if path_octree_context and not os.path.exists(path_octree_context):
+        raise FileNotFoundError(f"File not found: {path_octree_context}")
+    # Compute the view factor
+    command = f'rfluxmtx -h- -ab 0 -c {nb_rays} ' + f'"!xform -I "{path_emitter_rad_file}"" ' + (
+        f'"{path_receiver_rad_file}"')
+    if path_octree_context:
+        command += f' -i "{path_octree_context}"'
+
+    return command
+
 def compute_vf_between_emitter_and_receivers_radiance(path_emitter_rad_file: str,
                                                       path_receiver_rad_file: str,
                                                       path_output_file: str,
@@ -87,6 +112,35 @@ def compute_vf_between_emitter_and_receivers_radiance(path_emitter_rad_file: str
                                                         path_output_file, path_octree_context, nb_rays)
 
     subprocess.run(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def compute_vf_between_emitter_and_receivers_radiance_no_output(path_emitter_rad_file: str,
+                                                      path_receiver_rad_file: str,
+                                                      path_output_file: str,
+                                                      path_octree_context: str = None,
+                                                      nb_rays: int = 10000):
+    """
+    todo: test
+    Compute the view factor between 2 rectangles with Radiance.
+    :param path_emitter_rad_file: str, the path of the emitter Radiance file.
+    :param path_receiver_rad_file: str, the path of the receiver Radiance file.
+    :param path_output_file: str, the path of the output file.
+    :param path_octree_context: str, the path of the octree file.
+    :param nb_rays: int, the number of rays to use.
+    """
+
+    command = write_radiance_command_for_vf_computation_without_output(path_emitter_rad_file, path_receiver_rad_file,
+                                                        path_octree_context, nb_rays)
+
+    results = subprocess.run(command, capture_output=True, text=True)
+    output = results.stdout
+    processed_output = read_ruflumtx_commandline_output(output)
+
+    emitter_surface = path_output_file.split("output_")[1].split("_batch")[0]
+    batch_number = path_output_file.split("batch_")[1].split(".txt")[0]
+
+    return [emitter_surface,batch_number,processed_output]
+
+
 
 
 def run_oconv_command_for_octree_generation(path_rad_file_list: str, path_octree_file: str):
@@ -132,3 +186,13 @@ def read_ruflumtx_output_file(path_output_file: str) -> List[float]:
         data = rad_file.read().split("\t")
         # Read one out of three values, they are identical (red, blue, green values)
         return [float(data[i * 3]) for i in range(len(data) // 3)]
+
+def read_ruflumtx_commandline_output(command_line_output: str) -> List[float]:
+    """
+    Read the output file of rfluxmtx and return the view factor.
+    :param path_output_file: str, the path of the output file.
+    :return: list, the view factor.
+    """
+    data = command_line_output.split("\t")
+    # Read one out of three values, they are identical (red, blue, green values)
+    return [float(data[i * 3]) for i in range(len(data) // 3)]

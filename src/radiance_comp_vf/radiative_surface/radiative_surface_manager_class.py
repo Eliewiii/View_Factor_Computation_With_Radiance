@@ -20,6 +20,9 @@ from ..utils import from_receiver_rad_str_to_rad_files, from_receiver_rad_str_to
     create_folder, parallel_computation_in_batches_with_return, run_radiant_vf_computation_in_batches, \
     compute_vf_between_emitter_and_receivers_radiance, generate_random_rectangles, object_method_wrapper
 
+# todo: Fpr testing
+from ..utils.utils_run_radiance import compute_vf_between_emitter_and_receivers_radiance_no_output
+
 
 class RadiativeSurfaceManager:
     """
@@ -581,6 +584,27 @@ class RadiativeSurfaceManager:
             worker_batch_size=worker_batch_size,
             num_workers=num_workers,
             nb_rays=nb_rays)
+
+    def run_vf_computation_in_parallel_without_output_files(self, nb_rays: int = 10000, num_workers=1, worker_batch_size=1,
+                                       executor_type=ProcessPoolExecutor):
+        """
+        todo: Test function
+        Compute the view factor between multiple emitter and receiver with Radiance in batches.
+        :param nb_rays: int, the number of rays to use.
+        :param num_workers: int, the number of workers to use for the parallelization.
+        :param worker_batch_size: int, the size of the batch of commands to run in parallel.
+        :param executor_type: the type of executor to use for the parallelization.
+        """
+        self._sim_parameter_dict["num_rays"] = nb_rays
+
+        result = parallel_computation_in_batches_with_return(
+            func=compute_vf_between_emitter_and_receivers_radiance_no_output,
+            input_tables=self._radiance_argument_list,
+            executor_type=executor_type,
+            worker_batch_size=worker_batch_size,
+            num_workers=num_workers,
+            nb_rays=nb_rays)
+        return result
 
     def run_vf_computation_in_parallel_with_grouped_commands(self, nb_rays: int = 10000,
                                                              command_batch_size: int = 1, num_workers=1,

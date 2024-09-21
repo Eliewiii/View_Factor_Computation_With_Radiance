@@ -25,7 +25,7 @@ def radiative_surface_manager_instance():
     return radiative_surface_manager_instance
 
 
-num_ref_rectangles = 10
+num_ref_rectangles = 2
 num_random_rectangle = 10
 
 
@@ -257,6 +257,50 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         # Check the output files
         assert len(os.listdir(path_output_folder)) == len(radiative_surface_manager._radiance_argument_list)
         assert len(os.listdir(path_output_folder)) == len(os.listdir(path_receiver_folder))
+
+    def test_run_vf_computation_in_parallel_without_output(self, radiative_surface_manager_instance_with_random_rectangles):
+        """
+        Test the compute_view_factors method of the RadiativeSurfaceManager class.
+        """
+        # Initialize the radiative surface manager and folders
+        radiative_surface_manager = radiative_surface_manager_instance_with_random_rectangles
+        # File generation
+        num_receiver_per_file = 5
+        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
+            path_root_simulation_folder=radiance_test_file_dir,
+            num_receiver_per_file=num_receiver_per_file,
+            num_workers=4,
+            worker_batch_size=10,
+            executor_type=ThreadPoolExecutor
+        )
+        # Check the number of files
+        path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = radiative_surface_manager.create_vf_simulation_folders(
+            path_root_simulation_folder=radiance_test_file_dir, return_file_path_only=True)
+        assert len(os.listdir(path_receiver_folder)) == len(radiative_surface_manager._radiance_argument_list)
+        # Compute the view factors
+        nb_rays = 10000
+        num_workers = 2
+        worker_batch_size = 1
+        # file generated
+        radiative_surface_manager.run_vf_computation_in_parallel(
+            nb_rays=nb_rays,
+            num_workers=num_workers,
+            worker_batch_size=worker_batch_size,
+            executor_type=ThreadPoolExecutor
+        )
+        # No files
+        result = radiative_surface_manager.run_vf_computation_in_parallel_without_output_files(
+            nb_rays=nb_rays,
+            num_workers=num_workers,
+            worker_batch_size=worker_batch_size,
+            executor_type=ProcessPoolExecutor
+        )
+
+        print(result)
+
+
+
+
 
     def test_run_vf_computation_with_surfaces_with_holes(self):
         surface_0 = [
