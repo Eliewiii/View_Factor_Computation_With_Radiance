@@ -35,6 +35,9 @@ class RadiativeSurfaceManager:
     IO_BOUND_LIMIT_MULTIPLIER = 3
     MAX_WORKER_CPU_BOUND = os.cpu_count() * CPU_BOUND_LIMIT_MULTIPLIER
     MAX_WORKER_IO_BOUND = os.cpu_count() * IO_BOUND_LIMIT_MULTIPLIER
+    # Radiance
+    DEFAULT_NUMBER_OF_RAYS = 100000
+    DEFAULT_MIN_RAY_THRESHOLD = 10
 
     def __init__(self):
         self._radiative_surface_dict: dict = {}
@@ -266,6 +269,7 @@ class RadiativeSurfaceManager:
     def check_surface_visibility(self,
                                  num_workers: int = 0,
                                  mvfc: float = None,
+                                 mvfc_check: bool = True,
                                  ray_traced_check: bool = True,
                                  ray_tracing_among_all_all_corners: bool = False):
 
@@ -321,6 +325,7 @@ class RadiativeSurfaceManager:
     @staticmethod
     def _check_visibility_of_surface_chunk(*radiative_surface_id_list: List[str],
                                            radiative_surface_manager_obj: 'RadiativeSurfaceManager', mvfc: float,
+                                           mvfc_check: bool,
                                            ray_traced_check: bool,
                                            ray_tracing_among_all_all_corners: bool):
         """
@@ -585,8 +590,9 @@ class RadiativeSurfaceManager:
             num_workers=num_workers,
             nb_rays=nb_rays)
 
-    def run_vf_computation_in_parallel_without_output_files(self, nb_rays: int = 10000, num_workers=1, worker_batch_size=1,
-                                       executor_type=ProcessPoolExecutor):
+    def run_vf_computation_in_parallel_without_output_files(self, nb_rays: int = 10000, num_workers=1,
+                                                            worker_batch_size=1,
+                                                            executor_type=ProcessPoolExecutor):
         """
         todo: Test function
         Compute the view factor between multiple emitter and receiver with Radiance in batches.
@@ -733,21 +739,60 @@ class RadiativeSurfaceManager:
                              f"(maximum processes that your computer can handle before degrading performances.")
         return num_worker
 
-    @staticmethod
-    def _check_min_vf_criterion(min_vf_criterion: float) -> float:
+    def _check_min_vf_criterion(self, mvfc_check, min_vf_criterion: float, num_ray_radiance: int=None,
+                                min_ray_threshold: int = 1) -> float:
         """
         Check if the minimum view factor criterion is valid.
         :param min_vf_criterion: float, the minimum view factor criterion.
+        :param num_ray_radiance: int, the number of rays used for the view factor computation with Radiance.
+        :param min_ray_threshold: int, the minimum number of rays to consider the view factor as reliable.
         :return: float, the minimum view factor criterion.
         """
-        if min_vf_criterion is None:
-            pass
+        if mvfc_check is False:
+            return None
+        elif min_vf_criterion is None:
+            if num_ray_radiance is None:
+                return None
+            else:
+                # Check if the number of rays is valid, though it should be done before, it is a double check
+                self._check_num_ray(num_ray_radiance)
+                return min_ray_threshold / num_ray_radiance  # Return a float in Python
         elif not isinstance(min_vf_criterion, float):
             raise ValueError("The minimum view factor criterion must be a float or None")
         elif min_vf_criterion < 0 or min_vf_criterion > 1:
             raise ValueError("The minimum view factor criterion must be between 0 and 1.")
 
         return min_vf_criterion
+
+    def _check_num_ray(self, num_ray_radiance: int) -> int:
+        """
+        Check if the minimum view factor criterion is valid.
+        :param min_vf_criterion: float, the minimum view factor criterion.
+        :param num_ray_radiance: int, the number of rays used for the view factor computation with Radiance.
+        :param min_ray_threshold: int, the minimum number of rays to consider the view factor as reliable.
+        :return: float, the minimum view factor criterion.
+        """
+        if num_ray_radiance is None:
+            return self.DEFAULT_NUMBER_OF_RAYS
+        elif isinstance(num_ray_radiance, int):
+            raise ValueError(f"The number of rays for the Radiance computation must be an integer."
+                             f"value given: {num_ray_radiance}")
+        elif num_ray_radiance < 1000:
+            raise ValueError(f"The number of rays for the Radiance computation must be at least 1000."
+                             f"Otherwise, the computation might not be reliable."
+                             f"value given: {num_ray_radiance}")
+        elif 5000000 > num_ray_radiance > 1000000:
+            warnings.warn(f"The number of rays for the Radiance computation is high."
+                          f"Consider reducing it to increase the computation speed."
+                          f"value given: {num_ray_radiance}")
+        elif num_ray_radiance > 5000000:
+            raise ValueError(f"The number of rays for the Radiance computation is too high."
+                             f"The computation time of view factor with Radiance increases exponentially with the number of rays."
+                             f"Consider reducing it to increase the computation speed. If you really need such accuracy"
+                             f"consider modfiying the source code to increase the maximum number of rays."
+                             f"value given: {num_ray_radiance}")
+
+        return num_ray_radiance
 
 
 def flatten_table_to_lists(table):
