@@ -143,34 +143,32 @@ def compute_vf_between_emitter_and_receivers_radiance_no_output(path_emitter_rad
 
 
 
-def run_oconv_command_for_octree_generation(path_rad_file_list: str, path_octree_file: str):
+def run_oconv_command_for_octree_generation(path_rad_file: str, path_octree_file: str):
     """
     Generate the octree file from the Radiance file.
-    :param path_rad_file_list: [str], the list of paths of the Radiance files.
+    :param path_rad_file: str, the list of paths of the Radiance files.
     :param path_octree_file: str, the path of the octree file.
     """
     # Check if the paths of emitter and receiver files exist
-    for path_rad_file in path_rad_file_list:
-        check_file_exist(path_rad_file)
+    check_file_exist(path_rad_file)
     # Check if the folder of the output file exists
     check_parent_folder_exist(path_octree_file)
     # generate the command
-    command = write_oconv_command_for_octree_generation(path_rad_file_list, path_octree_file)
+    command = write_oconv_command_for_octree_generation(path_rad_file, path_octree_file)
     # Run the command
     subprocess.run(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return command
 
 
-def write_oconv_command_for_octree_generation(path_rad_file_list: [str], path_octree_file: str):
+def write_oconv_command_for_octree_generation(path_rad_file: str, path_octree_file: str):
     """
     Generate the octree file from the Radiance file.
-    :param path_rad_file_list: [str], the list of paths of the Radiance files.
+    :param path_rad_file: str, the list of paths of the Radiance files.
     :param path_octree_file: str, the path of the octree file.
     """
     # Generate the command
     command = f"oconv "
-    for path_rad_file in path_rad_file_list:
-        command += f"{path_rad_file} "
+    command += f"{path_rad_file} "
     command += f"> {path_octree_file}"
 
     return command

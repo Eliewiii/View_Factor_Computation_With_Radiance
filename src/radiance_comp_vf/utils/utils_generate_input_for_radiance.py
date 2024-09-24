@@ -22,34 +22,23 @@ def from_emitter_rad_str_to_rad_file(emitter_rad_str: str, path_emitter_rad_file
 
 
 def from_receiver_rad_str_to_octree_file(receiver_rad_str_list: str, path_folder_octree: str,
-                                         name_octree_file: str,
-                                         num_receiver_per_octree: int) -> str:
+                                         name_octree_file: str) -> str:
     """
     Convert the emitter and receiver PolyData to Radiance files.
     :param receiver_rad_str_list: [str], the list of receiver polydata.
     :param path_folder_octree: str, the path of the folder to save the octree file.
     :param name_octree_file: str, the name of the octree file.
-    :param num_receiver_per_octree: int, the number of receiver per rad file to convert to octree because
-        of Radiance limitations.
     :return: str, the path of the octree file.
     """
-    # Split the list of receiver PolyData into batches
-    receiver_rad_str_list_batches = split_into_batches(receiver_rad_str_list, num_receiver_per_octree)
-    num_batches = len(receiver_rad_str_list_batches)
-    #
-    name_rad_file_list = [name_octree_file + f"_batch_{i}" for i in range(num_batches)]
-    path_rad_file_list = [os.path.join(path_folder_octree, name_rad_file + ".rad") for name_rad_file in
-                          name_rad_file_list]
+    path_rad_file = os.path.join(path_folder_octree, name_octree_file + ".rad")
     path_octree_file = os.path.join(path_folder_octree, name_octree_file + ".oct")
     # Generate the initial rad file
-    for receiver_rad_str_batch, path_rad_file in zip(receiver_rad_str_list_batches, path_rad_file_list):
-        from_rad_str_list_to_octree_rad_file(rad_str_list=receiver_rad_str_batch, path_rad_file=path_rad_file)
+    from_rad_str_list_to_octree_rad_file(rad_str_list=receiver_rad_str_list, path_rad_file=path_rad_file)
     # Convert the rad files to octree file
-    run_oconv_command_for_octree_generation(path_rad_file_list=path_rad_file_list,
+    run_oconv_command_for_octree_generation(path_rad_file=path_rad_file,
                                             path_octree_file=path_octree_file)
-    # # Delete the rad file
-    # for path_rad_file in path_rad_file_list:
-    #     os.remove(path_rad_file)
+    # Delete the rad file
+    # os.remove(path_rad_file)
 
     return path_octree_file
 

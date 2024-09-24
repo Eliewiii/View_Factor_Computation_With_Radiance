@@ -83,7 +83,7 @@ def set_up_folders_for_radiance_files(rad_sim_folder):
     return path_emitter_folder, path_receiver_folder, path_output_folder
 
 
-def run_vf_computation(radiative_surface_manager_obj, type: str, nb_rays=10000,
+def _run_radiance_vf_computation_sequential(radiative_surface_manager_obj, type: str, nb_rays=10000,
                        command_batch_size=1,
                        num_workers=1,
                        worker_batch_size=1,
@@ -93,11 +93,11 @@ def run_vf_computation(radiative_surface_manager_obj, type: str, nb_rays=10000,
     """
     dur = time()
     if type == "single":
-        radiative_surface_manager_obj.run_vf_computation(
+        radiative_surface_manager_obj._run_radiance_vf_computation_sequential(
             nb_rays=nb_rays
         )
     elif type == "parallel":
-        radiative_surface_manager_obj.run_vf_computation_in_parallel(
+        radiative_surface_manager_obj._run_radiance_vf_computation_in_parallel(
             nb_rays=nb_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,

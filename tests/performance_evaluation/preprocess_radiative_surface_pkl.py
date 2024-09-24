@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from current_development.vf_computation_with_radiance.tests.performance_evaluation.utils_performance_evaluation import \
     generate_radiance_files_in_parallel, init_radiative_surface_manager, init_radiative_surface_manager_from_random_rectangles_that_see_each_others,\
-    init_radiative_surface_manager_in_parallel, run_vf_computation
+    init_radiative_surface_manager_in_parallel, _run_radiance_vf_computation_sequential
 
 
 def main(path_simulation_folder: str):

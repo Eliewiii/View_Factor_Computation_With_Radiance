@@ -37,7 +37,7 @@ def run_sim_with_outputs(radiative_surface_manager,nb_rays:int,
             num_workers:int,
             worker_batch_size:int,
             executor_type):
-    radiative_surface_manager.run_vf_computation_in_parallel(
+    radiative_surface_manager._run_radiance_vf_computation_in_parallel(
             nb_rays=nb_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
@@ -48,7 +48,7 @@ def run_sim_without_outputs(radiative_surface_manager,nb_rays:int,
             num_workers:int,
             worker_batch_size:int,
             executor_type):
-    radiative_surface_manager.run_vf_computation_in_parallel_without_output_files(
+    radiative_surface_manager._run_radiance_vf_computation_in_parallel_without_output_files(
         nb_rays=nb_rays,
         num_workers=num_workers,
         worker_batch_size=worker_batch_size,
