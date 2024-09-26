@@ -338,8 +338,6 @@ class RadiativeSurfaceManager:
             ray_traced_check=ray_traced_check,
             ray_tracing_among_all_all_corners=ray_tracing_among_all_all_corners)
 
-        print(visibility_result_dict_list)
-
         # Set the visibility result to the RadiativeSurface objects
         for visibility_result_dict in visibility_result_dict_list:
             """ Each dictionnary contains one surface id that point to a list of surface id that are visible"""
@@ -361,7 +359,6 @@ class RadiativeSurfaceManager:
                 context_pyvista_polydata_mesh=mesh,
                 mvfc=mvfc)
 
-        # print(visibility_result_dict)
 
     @staticmethod
     def _check_visibility_of_surface_chunk(*radiative_surface_id_list: List[str],
