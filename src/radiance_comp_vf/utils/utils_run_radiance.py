@@ -133,12 +133,12 @@ def compute_vf_between_emitter_and_receivers_radiance_no_output(path_emitter_rad
 
     results = subprocess.run(command, capture_output=True, text=True)
     output = results.stdout
-    processed_output = read_ruflumtx_commandline_output(output)
+    vf_list = read_ruflumtx_commandline_output(output)
 
     emitter_surface = path_output_file.split("output_")[1].split("_batch")[0]
-    batch_number = path_output_file.split("batch_")[1].split(".txt")[0]
+    batch_number = int(path_output_file.split("batch_")[1].split(".txt")[0])
 
-    return [emitter_surface,batch_number,processed_output]
+    return [emitter_surface,batch_number,vf_list]
 
 
 

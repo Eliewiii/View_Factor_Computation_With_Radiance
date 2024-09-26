@@ -18,7 +18,8 @@ from .radiative_surface_class import RadiativeSurface
 from ..utils import from_receiver_rad_str_to_rad_files, from_receiver_rad_str_to_octree_file, \
     from_emitter_rad_str_to_rad_file, split_into_batches, \
     create_folder, parallel_computation_in_batches_with_return, run_radiant_vf_computation_in_batches, \
-    compute_vf_between_emitter_and_receivers_radiance, generate_random_rectangles, object_method_wrapper
+    compute_vf_between_emitter_and_receivers_radiance, generate_random_rectangles, object_method_wrapper, \
+    flatten_table_to_lists
 
 # todo: Fpr testing
 from ..utils.utils_run_radiance import compute_vf_between_emitter_and_receivers_radiance_no_output
@@ -318,7 +319,7 @@ class RadiativeSurfaceManager:
         """
         # todo: set the chunk size to nb_surface//num_workers, and set num worker to nb thread
         num_workers = self._check_num_worker_valid(num_workers, worker_type="cpu")
-        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check,min_vf_criterion=mvfc)
+        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check, min_vf_criterion=mvfc)
         """
         This function necessarily uses multiprocessing, as the visibility check is a CPU-bound task.
         And as the context_polydata_mesh, required for the visibility check, need to be computed at each new process 
@@ -341,8 +342,9 @@ class RadiativeSurfaceManager:
         # Set the visibility result to the RadiativeSurface objects
         for visibility_result_dict in visibility_result_dict_list:
             """ Each dictionary contains one surface id that point to a list of surface id that are visible"""
-            radiative_surface_id= list(visibility_result_dict.keys())[0]
-            self._radiative_surface_dict[radiative_surface_id].add_viewed_surfaces(viewed_surface_id_list=visibility_result_dict[radiative_surface_id],overwrite=True)
+            radiative_surface_id = list(visibility_result_dict.keys())[0]
+            self._radiative_surface_dict[radiative_surface_id].add_viewed_surfaces(
+                viewed_surface_id_list=visibility_result_dict[radiative_surface_id], overwrite=True)
 
     def _check_surface_visibility_sequential(self, mvfc):
         """
@@ -358,7 +360,6 @@ class RadiativeSurfaceManager:
                 radiative_surface_list=self._radiative_surface_dict.values(),
                 context_pyvista_polydata_mesh=mesh,
                 mvfc=mvfc)
-
 
     @staticmethod
     def _check_visibility_of_surface_chunk(*radiative_surface_id_list: List[str],
@@ -844,14 +845,3 @@ class RadiativeSurfaceManager:
                              f"value given: {num_ray_radiance}")
 
         return num_ray_radiance
-
-
-def flatten_table_to_lists(table):
-    flattened = []
-    for item in table:
-        if isinstance(item, list) and any(isinstance(sub_item, list) for sub_item in item):
-            flattened.extend(flatten_table_to_lists(item))  # Recursively flatten sublist
-        elif not item == [] or isinstance(item, list):  # Ignore empty lists
-            flattened.append(item)  # Add non-list item or innermost non-empty list to the flattened list
-    flattened = [item for item in flattened if not item == []]  # Remove empty lists
-    return flattened
