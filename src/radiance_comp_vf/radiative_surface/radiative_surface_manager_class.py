@@ -340,7 +340,7 @@ class RadiativeSurfaceManager:
 
         # Set the visibility result to the RadiativeSurface objects
         for visibility_result_dict in visibility_result_dict_list:
-            """ Each dictionnary contains one surface id that point to a list of surface id that are visible"""
+            """ Each dictionary contains one surface id that point to a list of surface id that are visible"""
             radiative_surface_id= list(visibility_result_dict.keys())[0]
             self._radiative_surface_dict[radiative_surface_id].add_viewed_surfaces(viewed_surface_id_list=visibility_result_dict[radiative_surface_id],overwrite=True)
 
