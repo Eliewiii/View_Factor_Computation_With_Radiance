@@ -318,17 +318,26 @@ class RadiativeSurface:
             elif self._transmissivity == 0:
                 self._transmissivity = 1. - self._emissivity - self._reflectivity
 
-    def add_viewed_surfaces(self, viewed_surface_id_list: List[str]):
+    def _init_viewed_surfaces_id_list(self):
+        """
+        Initialize the viewed surfaces list.
+        """
+        self._viewed_surfaces_id_list= []
+
+    def add_viewed_surfaces(self, viewed_surface_id_list: List[str],overwrite=False):
         """
         Add a viewed surface to the current surface.
         :param viewed_surface_id_list: str or [str], the identifier of the viewed surface.
+        :param overwrite: bool, if True, the viewed surfaces list is reinitialized.
         """
         if not isinstance(viewed_surface_id_list, list):
             raise ValueError("The viewed surface identifier must be a list of strings.")
+        if overwrite:
+            self._init_viewed_surfaces_id_list()
         for viewed_surface_id in viewed_surface_id_list:
             if not isinstance(viewed_surface_id, str):
                 raise ValueError("The viewed surface identifier must be a string.")
-            if viewed_surface_id not in self._viewed_surfaces_id_list:
+            if overwrite or viewed_surface_id not in self._viewed_surfaces_id_list:  # if overwrite is True, the surface the surface id list is reinitialized, so the surface is added anyway
                 self._viewed_surfaces_id_list.append(viewed_surface_id)
                 self._viewed_surfaces_dict[viewed_surface_id] = self._num_viewed_surfaces
                 self._num_viewed_surfaces += 1

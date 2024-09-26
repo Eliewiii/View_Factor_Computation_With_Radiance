@@ -300,14 +300,17 @@ class RadiativeSurfaceManager:
 
     def check_surface_visibility(self,
                                  num_workers: int = 0,
-                                 mvfc: float = None,
                                  mvfc_check: bool = True,
+                                 mvfc: float = None,
                                  ray_traced_check: bool = True,
                                  ray_tracing_among_all_all_corners: bool = False):
 
         """
         Check the visibility between all the RadiativeSurface objects in the manager.
+        Note that it overwrite the existing visibility/seen surfaces of the RadiativeSurface objects.
+        If adding some visibility is crucial for you for advance usage, you should add them after running this function.
         :param num_workers: int, the number of workers to use for the parallelization.
+        :param mvfc_check: bool, if True, performs the minimum visibility factor criterion check.
         :param mvfc: float, the minimum visibility factor criterion to consider the surface as visible.
         :param ray_traced_check: bool, if True, use the ray tracing method to check the visibility.
         :param ray_tracing_among_all_all_corners: bool, if True and ray_traced_check is True, check the visibility
@@ -315,7 +318,7 @@ class RadiativeSurfaceManager:
         """
         # todo: set the chunk size to nb_surface//num_workers, and set num worker to nb thread
         num_workers = self._check_num_worker_valid(num_workers, worker_type="cpu")
-        mvfc = self._check_min_vf_criterion(mvfc)
+        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check,min_vf_criterion=mvfc)
         """
         This function necessarily uses multiprocessing, as the visibility check is a CPU-bound task.
         And as the context_polydata_mesh, required for the visibility check, need to be computed at each new process 
@@ -335,9 +338,15 @@ class RadiativeSurfaceManager:
             ray_traced_check=ray_traced_check,
             ray_tracing_among_all_all_corners=ray_tracing_among_all_all_corners)
 
-        # todo: redistribute the results to the radiative surface objects
+        print(visibility_result_dict_list)
 
-    def check_surface_visibility_sequential(self, mvfc):
+        # Set the visibility result to the RadiativeSurface objects
+        for visibility_result_dict in visibility_result_dict_list:
+            """ Each dictionnary contains one surface id that point to a list of surface id that are visible"""
+            radiative_surface_id= list(visibility_result_dict.keys())[0]
+            self._radiative_surface_dict[radiative_surface_id].add_viewed_surfaces(viewed_surface_id_list=visibility_result_dict[radiative_surface_id],overwrite=True)
+
+    def _check_surface_visibility_sequential(self, mvfc):
         """
         Check the visibility between all the RadiativeSurface objects in the manager.
         todo: remove function eventually
@@ -357,7 +366,6 @@ class RadiativeSurfaceManager:
     @staticmethod
     def _check_visibility_of_surface_chunk(*radiative_surface_id_list: List[str],
                                            radiative_surface_manager_obj: 'RadiativeSurfaceManager', mvfc: float,
-                                           mvfc_check: bool,
                                            ray_traced_check: bool,
                                            ray_tracing_among_all_all_corners: bool):
         """
