@@ -423,9 +423,11 @@ class RadiativeSurfaceManager:
         self._reinitialize_radiance_argument_list()
         # Generate the octree file if one octree for all
         if one_octree_for_all and consider_octree:
-            path_octree_file = self.generate_octree(receiver_rad_str_list=[],
-                                                    path_octree_folder=path_octree_folder,
-                                                    name_octree_file="all_surfaces")
+            path_octree_file = self.generate_octree(
+                receiver_rad_str_list=[radiative_surface.rad_file_content for radiative_surface in
+                                       self._radiative_surface_dict.values()],
+                path_octree_folder=path_octree_folder,
+                name_octree_file="all_surfaces")
         else:
             path_octree_file = None
 
@@ -492,6 +494,8 @@ class RadiativeSurfaceManager:
                                                         name_octree_file=name_octree_file)
             else:
                 path_octree_file = path_one_octree_file
+        else:
+            path_octree_file = None
         # Generate the Radiance files for each batch
         argument_list_to_add = []
         for batch_index, batch_receiver_rad_str in enumerate(receiver_rad_str_list_batches):

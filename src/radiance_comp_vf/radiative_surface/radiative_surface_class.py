@@ -96,12 +96,12 @@ class RadiativeSurface:
         """
         vertex_array = np.array(vertex_list)
         # Convert the geometry array with wholes to a vertex list
-        contoured_verterx_list = contour_numpy_array_planar_surface_with_holes(
-            surface_boundary=vertex_array, hole_list=hole_list)
+        contoured_vertex_list = contour_numpy_array_planar_surface_with_holes(
+            surface_boundary=vertex_array, hole_array_list=hole_list)
 
         # Compute the area, centroid and corner vertices
         radiative_surface_obj = cls(identifier)
-        radiative_surface_obj.set_geometry(vertex_array=contoured_verterx_list)
+        radiative_surface_obj.set_geometry(vertex_array=contoured_vertex_list)
 
         return radiative_surface_obj
 

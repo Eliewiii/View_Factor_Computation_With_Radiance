@@ -251,7 +251,12 @@ class TestRadiativeSurfaceManagerRadianceVFComputationSurfacesWithHoles:
         assert abs(1 - vf_with_hole / (vf_witout_hole - vf_hole)) < 0.02  # Error margin of 2%
 
 class TestRadiativeSurfaceManagerRadianceVFComputationObstructionInOctree:
+    """
+    todo: check if up to date and update if necessary
+    """
     def test_run_vf_computation_with_obstruction_in_octree(self):
+
+
         surface_0 = [
             [0., 0., 0.],
             [10., 0., 0.],
@@ -305,7 +310,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputationObstructionInOctree:
         vf_s1 = radiative_surface_manager.get_radiative_surface("surface_0").viewed_surfaces_view_factor_list[
             0]
         # ---------------------------------------------------------
-        # Computation with hole
+        # Computation surface 2
         # ---------------------------------------------------------
         radiative_surface_manager = RadiativeSurfaceManager()
         radiative_surface_obj_0 = RadiativeSurface.from_vertex_list(vertex_list=surface_0,
@@ -337,7 +342,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputationObstructionInOctree:
             radiative_surface_manager.get_radiative_surface("surface_0").viewed_surfaces_view_factor_list[0]
 
         # ---------------------------------------------------------
-        # Computation of the hole itself
+        # Computation with both surfaces
         # ---------------------------------------------------------
         radiative_surface_manager = RadiativeSurfaceManager()
         radiative_surface_obj_0 = RadiativeSurface.from_vertex_list(vertex_list=surface_0,
@@ -377,6 +382,46 @@ class TestRadiativeSurfaceManagerRadianceVFComputationObstructionInOctree:
         print(f"vf_s1_obs: {vf_s1_obs}")
         print(f"vf_s2_obs: {vf_s2_obs}")
         print(f"(1-vf_s2_obs/(vf_s2-vf_s1))*100: {(1 - vf_s2_obs / (vf_s2 - vf_s1)) * 100}")
+
+        # ---------------------------------------------------------
+        # Computation with both surfaces one octree
+        # ---------------------------------------------------------
+        radiative_surface_manager = RadiativeSurfaceManager()
+        radiative_surface_obj_0 = RadiativeSurface.from_vertex_list(vertex_list=surface_0,
+                                                                    identifier="surface_0")
+        radiative_surface_obj_1 = RadiativeSurface.from_vertex_list(vertex_list=surface_1,
+                                                                    identifier="surface_1")
+        radiative_surface_obj_2 = RadiativeSurface.from_vertex_list(vertex_list=surface_2,
+                                                                    identifier="surface_2")
+        radiative_surface_obj_0.add_viewed_surfaces(["surface_1", "surface_2"])
+        radiative_surface_manager.add_radiative_surfaces(
+            [radiative_surface_obj_0, radiative_surface_obj_1, radiative_surface_obj_2])
+        # file generation
+        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
+            path_root_simulation_folder=radiance_test_file_dir,
+            num_receiver_per_file=1,
+            num_workers=1,
+            worker_batch_size=1,
+            executor_type=ThreadPoolExecutor,
+            one_octree_for_all=True
+        )
+        # Compute the view factors
+        num_workers = 1
+        worker_batch_size = 1
+        radiative_surface_manager._run_radiance_vf_computation_in_parallel(
+            nb_rays=nb_rays,
+            num_workers=num_workers,
+            worker_batch_size=worker_batch_size,
+            executor_type=ThreadPoolExecutor
+        )
+        radiative_surface_manager.read_vf_from_radiance_output_files(
+            path_output_folder=radiance_test_file_dir)
+        [vf_s1_obs_one_octree, vf_s2_obs_one_octree] = radiative_surface_manager.get_radiative_surface(
+            "surface_0").viewed_surfaces_view_factor_list
+
+        print("")
+        print(f"vf_s1_obs_one_octree: {vf_s1_obs_one_octree}")
+        print(f"vf_s2_obs_one_octree: {vf_s2_obs_one_octree}")
 
 
 def test_flatten_table_to_lists():
