@@ -267,7 +267,7 @@ class RadiativeSurfaceManager:
     # -----------------------------------------------------------------
     def run_view_factor_computation(self, path_root_simulation_folder: str, num_receiver_per_file: int = 1,
                                     num_workers=1, worker_batch_size=1, executor_type_radiance_call=ProcessPoolExecutor,
-                                    overwrite_folders: bool = False, num_receiver_per_octree: int = 1000,
+                                    overwrite_folders: bool = False,
                                     consider_octree: bool = True, one_octree_for_all: bool = False):
         """
         Run the whole view factor computation process.
@@ -277,27 +277,22 @@ class RadiativeSurfaceManager:
         :param worker_batch_size: int, the size of the batch of surfaces to process in parallel.
         :param executor_type_radiance_call: the type of executor to use for the parallelization.
         :param overwrite_folders: bool, if True, overwrite the folders if they already exist.
-        :param num_receiver_per_octree: int, the number of receivers per octree sub file
-            (due to radiance limitation)
         :param consider_octree: bool, if True, consider the octree file in the Radiance command.
         """
         # Check the visibility between the surfaces
 
         # Generate the Radiance input files
         self.generate_radiance_inputs_for_all_surfaces_in_parallel(path_root_simulation_folder,
-                                                                  num_receiver_per_file=num_receiver_per_file,
-                                                                  num_workers=num_workers,
-                                                                  worker_batch_size=worker_batch_size,
-                                                                  executor_type=ThreadPoolExecutor,
-                                                                  overwrite_folders=overwrite_folders,
-                                                                  num_receiver_per_octree=num_receiver_per_octree,
-                                                                  consider_octree=consider_octree)
-
+                                                                   num_receiver_per_file=num_receiver_per_file,
+                                                                   num_workers=num_workers,
+                                                                   worker_batch_size=worker_batch_size,
+                                                                   executor_type=ThreadPoolExecutor,
+                                                                   overwrite_folders=overwrite_folders,
+                                                                   consider_octree=consider_octree)
 
         # Run the Radiance view factor computation
         self.run_vf_computation()
         # Correct the view factor
-
 
     # -----------------------------------------------------------------
     # Visibility check
@@ -406,7 +401,6 @@ class RadiativeSurfaceManager:
                                                               num_workers=1, worker_batch_size=1,
                                                               executor_type=ThreadPoolExecutor,
                                                               overwrite_folders: bool = False,
-                                                              num_receiver_per_octree: int = 1000,
                                                               consider_octree: bool = True,
                                                               one_octree_for_all: bool = False):
         """
@@ -417,8 +411,6 @@ class RadiativeSurfaceManager:
         :param worker_batch_size: int, the size of the batch of surfaces to process in parallel.
         :param executor_type: the type of executor to use for the parallelization.
         :param overwrite_folders: bool, if True, overwrite the folders if they already exist.
-        :param num_receiver_per_octree: int, the number of receivers per octree sub file
-            (due to radiance limitation)
         :param consider_octree: bool, if True, consider the octree file in the Radiance command.
         :param one_octree_for_all: bool, if True, generate only one octree file for all the surfaces, and not one per
             emitter.
@@ -430,12 +422,10 @@ class RadiativeSurfaceManager:
         # Reinitialize the Radiance argument list
         self._reinitialize_radiance_argument_list()
         # Generate the octree file if one octree for all
-        if one_octree_for_all:
+        if one_octree_for_all and consider_octree:
             path_octree_file = self.generate_octree(receiver_rad_str_list=[],
                                                     path_octree_folder=path_octree_folder,
-                                                    name_octree_file="all_surfaces",
-                                                    num_receiver_per_octree=num_receiver_per_octree,
-                                                    consider_octree=consider_octree)
+                                                    name_octree_file="all_surfaces")
         else:
             path_octree_file = None
 
@@ -452,8 +442,8 @@ class RadiativeSurfaceManager:
             path_receiver_folder=path_receiver_folder,
             path_output_folder=path_output_folder,
             num_receiver_per_file=num_receiver_per_file,
-            num_receiver_per_octree=num_receiver_per_octree,
-            consider_octree=consider_octree)
+            consider_octree=consider_octree,
+            path_one_octree_file=path_octree_file)
 
         argument_list_to_add = flatten_table_to_lists(argument_list_to_add)
 
@@ -464,7 +454,7 @@ class RadiativeSurfaceManager:
                                                  path_receiver_folder: str,
                                                  path_output_folder: str, num_receiver_per_file: int = 1,
                                                  consider_octree: bool = True,
-                                                 one_octree_for_all: bool = False):
+                                                 path_one_octree_file: str = None):
         """
         Generate the Radiance input files for one RadiativeSurface object.
         :param radiative_surface_obj: RadiativeSurface, the RadiativeSurface object.
@@ -476,6 +466,7 @@ class RadiativeSurfaceManager:
             batch is simulated the with separate calls of Radiance and generate results in different files.
         :pa
         :param consider_octree: bool, if True, consider the octree file in the Radiance command.
+        :param path_one_octree_file: str, the path of the octree file if one octree for all.
         """
         # Check if the surface has viewed surfaces aka simulation is needed
         if len(radiative_surface_obj.viewed_surfaces_id_list) == 0:
@@ -493,12 +484,14 @@ class RadiativeSurfaceManager:
         path_emitter_rad_file = self.generate_emitter_file(emitter_rad_str=emitter_rad_str,
                                                            path_emitter_folder=path_emitter_folder,
                                                            name_emitter_rad_file=name_emitter_rad_file)
-        # Generate the octree file
-        path_octree_file = self.generate_octree(receiver_rad_str_list=receiver_rad_str_list,
-                                                path_octree_folder=path_octree_folder,
-                                                name_octree_file=name_octree_file,
-                                                num_receiver_per_octree=num_receiver_per_octree,
-                                                consider_octree=consider_octree)
+        # Octree file
+        if consider_octree:
+            if path_one_octree_file is None:
+                path_octree_file = self.generate_octree(receiver_rad_str_list=receiver_rad_str_list,
+                                                        path_octree_folder=path_octree_folder,
+                                                        name_octree_file=name_octree_file)
+            else:
+                path_octree_file = path_one_octree_file
         # Generate the Radiance files for each batch
         argument_list_to_add = []
         for batch_index, batch_receiver_rad_str in enumerate(receiver_rad_str_list_batches):
@@ -565,7 +558,7 @@ class RadiativeSurfaceManager:
 
     @staticmethod
     def generate_octree(receiver_rad_str_list: List[str], path_octree_folder: str, name_octree_file: str,
-                         consider_octree: bool = True) -> str:
+                        consider_octree: bool = True) -> str:
         """
         Generate the octree file from the receiver PolyData.
         :param receiver_rad_str_list: [str], the list of receiver PolyData string for Radiance files.
@@ -622,7 +615,7 @@ class RadiativeSurfaceManager:
             compute_vf_between_emitter_and_receivers_radiance(*input_arg, nb_rays=nb_rays)
 
     def _run_radiance_vf_computation_in_parallel(self, nb_rays: int = 10000, num_workers=1, worker_batch_size=1,
-                                       executor_type=ThreadPoolExecutor):
+                                                 executor_type=ThreadPoolExecutor):
         """
         Compute the view factor between multiple emitter and receiver with Radiance in batches.
         :param nb_rays: int, the number of rays to use.
@@ -640,8 +633,8 @@ class RadiativeSurfaceManager:
             nb_rays=nb_rays)
 
     def _run_radiance_vf_computation_in_parallel_without_output_files(self, nb_rays: int = 10000, num_workers=1,
-                                                            worker_batch_size=1,
-                                                            executor_type=ProcessPoolExecutor):
+                                                                      worker_batch_size=1,
+                                                                      executor_type=ProcessPoolExecutor):
         """
         todo: Test function
         Compute the view factor between multiple emitter and receiver with Radiance in batches.
@@ -788,7 +781,7 @@ class RadiativeSurfaceManager:
                              f"(maximum processes that your computer can handle before degrading performances.")
         return num_worker
 
-    def _check_min_vf_criterion(self, mvfc_check, min_vf_criterion: float, num_ray_radiance: int=None,
+    def _check_min_vf_criterion(self, mvfc_check, min_vf_criterion: float, num_ray_radiance: int = None,
                                 min_ray_threshold: int = 1) -> float:
         """
         Check if the minimum view factor criterion is valid.
