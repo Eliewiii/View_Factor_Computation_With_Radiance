@@ -23,25 +23,32 @@ class TestRadiativeSurfaceManagerRadianceVFComputationNormalCases:
     Tests for the computation of view factors by the RadiativeSurfaceManager class with Radiance.
     """
 
-    def test_run_vf_computation(self, radiative_surface_manager_instance_with_random_rectangles):
+    @staticmethod
+    def make_input_files_for_radiance_vf_computation(radiative_surface_manager, num_receiver_per_file) -> [str, str,
+                                                                                                           str, str]:
+        """
+        Generate the Radiance input files for the view factor computation.
+        """
+        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
+            path_root_simulation_folder=radiance_test_file_dir,
+            num_receiver_per_file=num_receiver_per_file,
+            num_workers=0,
+            worker_batch_size=10,
+            executor_type=ThreadPoolExecutor
+        )
+        path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = radiative_surface_manager.create_vf_simulation_folders(
+            path_root_simulation_folder=radiance_test_file_dir, return_file_path_only=True)
+        return path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder
+
+    def test_run_vf_computation_sequential(self, radiative_surface_manager_instance_with_random_rectangles):
         """
         Test the compute_view_factors method of the RadiativeSurfaceManager class.
         """
         # Initialize the radiative surface manager and folders
         radiative_surface_manager = radiative_surface_manager_instance_with_random_rectangles
         # File generation
-        num_receiver_per_file = 5
-        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
-            path_root_simulation_folder=radiance_test_file_dir,
-            num_receiver_per_file=num_receiver_per_file,
-            num_workers=4,
-            worker_batch_size=10,
-            executor_type=ThreadPoolExecutor
-        )
-        # Check the number of files
-        path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = radiative_surface_manager.create_vf_simulation_folders(
-            path_root_simulation_folder=radiance_test_file_dir, return_file_path_only=True)
-        assert len(os.listdir(path_receiver_folder)) == len(radiative_surface_manager._radiance_argument_list)
+        path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.make_input_files_for_radiance_vf_computation(
+            radiative_surface_manager, num_receiver_per_file=5)
         # Compute the view factors
         nb_rays = 10000
         radiative_surface_manager._run_radiance_vf_computation_sequential(
@@ -58,18 +65,8 @@ class TestRadiativeSurfaceManagerRadianceVFComputationNormalCases:
         # Initialize the radiative surface manager and folders
         radiative_surface_manager = radiative_surface_manager_instance_with_random_rectangles
         # File generation
-        num_receiver_per_file = 5
-        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
-            path_root_simulation_folder=radiance_test_file_dir,
-            num_receiver_per_file=num_receiver_per_file,
-            num_workers=4,
-            worker_batch_size=10,
-            executor_type=ThreadPoolExecutor
-        )
-        # Check the number of files
-        path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = radiative_surface_manager.create_vf_simulation_folders(
-            path_root_simulation_folder=radiance_test_file_dir, return_file_path_only=True)
-        assert len(os.listdir(path_receiver_folder)) == len(radiative_surface_manager._radiance_argument_list)
+        path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.make_input_files_for_radiance_vf_computation(
+            radiative_surface_manager, num_receiver_per_file=5)
         # Compute the view factors
         nb_rays = 10000
         num_workers = 8
@@ -84,6 +81,33 @@ class TestRadiativeSurfaceManagerRadianceVFComputationNormalCases:
         assert len(os.listdir(path_output_folder)) == len(radiative_surface_manager._radiance_argument_list)
         assert len(os.listdir(path_output_folder)) == len(os.listdir(path_receiver_folder))
 
+    def test_run_vf_computation_sequential_without_output(self,
+                                                          radiative_surface_manager_instance_with_random_rectangles):
+        """
+        Test the compute_view_factors method of the RadiativeSurfaceManager class without generating the output files,
+        extracting the view factors from the command line output.
+        Sequential computation, for easier debugging (multiprocessing can raise memory errors).
+        """
+        # Initialize the radiative surface manager and folders
+        radiative_surface_manager = radiative_surface_manager_instance_with_random_rectangles
+        # File generation
+        path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.make_input_files_for_radiance_vf_computation(
+            radiative_surface_manager, num_receiver_per_file=5)
+        # Compute the view factors
+        nb_rays = 10000
+        num_workers = 2
+        worker_batch_size = 1
+        # VF computation without output files
+        radiative_surface_manager._run_radiance_vf_computation_without_output_files_sequential(
+            nb_rays=nb_rays
+        )
+        # Check that the number of view factor for each surface is correct
+        for radiative_surface in radiative_surface_manager._radiative_surface_dict.values():
+            assert len(radiative_surface.viewed_surfaces_view_factor_list) == len(
+                radiative_surface.viewed_surfaces_id_list)
+
+
+
     def test_run_vf_computation_in_parallel_without_output(self,
                                                            radiative_surface_manager_instance_with_random_rectangles):
         """
@@ -92,38 +116,21 @@ class TestRadiativeSurfaceManagerRadianceVFComputationNormalCases:
         # Initialize the radiative surface manager and folders
         radiative_surface_manager = radiative_surface_manager_instance_with_random_rectangles
         # File generation
-        num_receiver_per_file = 5
-        radiative_surface_manager.generate_radiance_inputs_for_all_surfaces_in_parallel(
-            path_root_simulation_folder=radiance_test_file_dir,
-            num_receiver_per_file=num_receiver_per_file,
-            num_workers=4,
-            worker_batch_size=10,
-            executor_type=ThreadPoolExecutor
-        )
-        # Check the number of files
-        path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = radiative_surface_manager.create_vf_simulation_folders(
-            path_root_simulation_folder=radiance_test_file_dir, return_file_path_only=True)
-        assert len(os.listdir(path_receiver_folder)) == len(radiative_surface_manager._radiance_argument_list)
+        path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.make_input_files_for_radiance_vf_computation(
+            radiative_surface_manager, num_receiver_per_file=5)
         # Compute the view factors
         nb_rays = 10000
         num_workers = 2
         worker_batch_size = 1
-        # file generated
-        radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
-            num_workers=num_workers,
-            worker_batch_size=worker_batch_size,
-            executor_type=ThreadPoolExecutor
-        )
         # No files
-        result = radiative_surface_manager._run_radiance_vf_computation_in_parallel_without_output_files(
+        radiative_surface_manager._run_radiance_vf_computation_in_parallel_without_output_files(
             nb_rays=nb_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ProcessPoolExecutor
         )
 
-        print(result)
+
 
 class TestRadiativeSurfaceManagerRadianceVFComputationSurfacesWithHoles:
 
@@ -250,13 +257,13 @@ class TestRadiativeSurfaceManagerRadianceVFComputationSurfacesWithHoles:
         print(f"vf_with_hole/(vf_witout_hole-vf_hole): {vf_with_hole / (vf_witout_hole - vf_hole)}")
         assert abs(1 - vf_with_hole / (vf_witout_hole - vf_hole)) < 0.02  # Error margin of 2%
 
+
 class TestRadiativeSurfaceManagerRadianceVFComputationObstructionInOctree:
     """
     todo: check if up to date and update if necessary
     """
+
     def test_run_vf_computation_with_obstruction_in_octree(self):
-
-
         surface_0 = [
             [0., 0., 0.],
             [10., 0., 0.],

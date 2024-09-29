@@ -19,7 +19,7 @@ from ..utils import from_receiver_rad_str_to_rad_files, from_receiver_rad_str_to
     from_emitter_rad_str_to_rad_file, split_into_batches, \
     create_folder, parallel_computation_in_batches_with_return, run_radiant_vf_computation_in_batches, \
     compute_vf_between_emitter_and_receivers_radiance, generate_random_rectangles, object_method_wrapper, \
-    flatten_table_to_lists
+    flatten_table_to_lists, merge_sublists_to_dict, sort_table_by_column
 
 # todo: Fpr testing
 from ..utils.utils_run_radiance import compute_vf_between_emitter_and_receivers_radiance_no_output
@@ -404,7 +404,7 @@ class RadiativeSurfaceManager:
     # -----------------------------------------------------------------
     def generate_radiance_inputs_for_all_surfaces_in_parallel(self, path_root_simulation_folder: str,
                                                               num_receiver_per_file: int = 1,
-                                                              num_workers=1, worker_batch_size=1,
+                                                              num_workers=0, worker_batch_size=1,
                                                               executor_type=ThreadPoolExecutor,
                                                               overwrite_folders: bool = False,
                                                               consider_octree: bool = True,
@@ -421,6 +421,7 @@ class RadiativeSurfaceManager:
         :param one_octree_for_all: bool, if True, generate only one octree file for all the surfaces, and not one per
             emitter.
         """
+        num_workers = self._check_num_worker_valid(num_workers, worker_type="io")
         # Generate the folder if they don't exist
         path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.create_vf_simulation_folders(
             path_root_simulation_folder,
@@ -642,6 +643,24 @@ class RadiativeSurfaceManager:
             num_workers=num_workers,
             nb_rays=nb_rays)
 
+    def _run_radiance_vf_computation_without_output_files_sequential(self, nb_rays: int = 10000):
+        """
+        Compute the view factor between multiple emitter and receiver with Radiance sequentially, FOR TESTING PURPOSES.
+        :param nb_rays: int, the number of rays to use.
+        """
+        self._sim_parameter_dict["num_rays"] = nb_rays
+        command_returned_vf_list = []  # each returned has the following format [id_emitter, batch_number, [vf_list]]
+        for input_arg in self._radiance_argument_list:
+            command_returned_vf_list.append(
+                compute_vf_between_emitter_and_receivers_radiance_no_output(*input_arg, nb_rays=nb_rays))
+        # Postprocessing to first group the results by emitter and then by batch, then merge the VF list
+        sorted_command_returned_vf_list = sort_table_by_column(command_returned_vf_list, list_of_column_index_to_sort=[0, 1])
+        emitter_vf_dict = merge_sublists_to_dict(sorted_command_returned_vf_list, index_key_column=0, index_merge_column=2)
+        for emitter_id, vf_list in emitter_vf_dict.items():
+            self._radiative_surface_dict[emitter_id].add_view_factors(vf_list)
+
+
+
     def _run_radiance_vf_computation_in_parallel_without_output_files(self, nb_rays: int = 10000, num_workers=1,
                                                                       worker_batch_size=1,
                                                                       executor_type=ProcessPoolExecutor):
@@ -664,11 +683,18 @@ class RadiativeSurfaceManager:
             nb_rays=nb_rays)
         return result
 
+        # Postprocessing to first group the results by emitter and then by batch, then merge the VF list
+        sorted_command_returned_vf_list = sort_table_by_column(command_returned_vf_list, list_of_column_index_to_sort=[0, 1])
+        emitter_vf_dict = merge_sublists_to_dict(sorted_command_returned_vf_list, index_key_column=0, index_merge_column=2)
+        for emitter_id, vf_list in emitter_vf_dict.items():
+            self._radiative_surface_dict[emitter_id].add_view_factors(vf_list)
+
     def run_vf_computation_in_parallel_with_grouped_commands(self, nb_rays: int = 10000,
                                                              command_batch_size: int = 1, num_workers=1,
                                                              worker_batch_size=1,
                                                              executor_type=ThreadPoolExecutor):
         """
+        todo: To delete eventually, it is slower than the other methods
         Compute the view factor between multiple emitter and receiver with Radiance in batches.
         :param nb_rays: int, the number of rays to use.
         :param command_batch_size: int, the size of the batch of commands to run one after another
@@ -693,7 +719,7 @@ class RadiativeSurfaceManager:
     ###############################
     # Read the results
     ###############################
-    def read_vf_from_radiance_output_files(self, path_output_folder: str,
+    def _read_vf_from_radiance_output_files(self, path_output_folder: str,
                                            num_workers=1, worker_batch_size=1):
         """
         Read the view factor from the Radiance output files.

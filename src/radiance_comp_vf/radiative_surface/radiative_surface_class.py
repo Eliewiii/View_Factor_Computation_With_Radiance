@@ -344,6 +344,20 @@ class RadiativeSurface:
             else:
                 raise ValueError(f"The surface {viewed_surface_id} is already in the viewed surfaces list.")
 
+    def add_view_factors(self, view_factor_list: List[float]):
+        """
+        Add the view factors of the viewed surfaces.
+        For complexity reasons, the view factors are assumed to be added in the order of the viewed surfaces list.
+        The logic in the RadiativeSurfaceManager object is responsible for the correct order.
+        As the view factors are computed by numbered batches, from an ordered list of viewed surfaces, the order of the
+        view factors is the same as the order of the viewed surfaces.
+        :param view_factor_list: List[float], the list of view factors.
+        """
+        if len(view_factor_list) != self._num_viewed_surfaces:
+            raise ValueError(f"The length of the view factor list ({len(view_factor_list)}) must be equal to the number "
+                             f"of viewed surfaces ({self._num_viewed_surfaces}).")
+        self._viewed_surfaces_view_factor_list.extend(view_factor_list)
+
     # =========================================================
     # Obstruction Methods
     # =========================================================
