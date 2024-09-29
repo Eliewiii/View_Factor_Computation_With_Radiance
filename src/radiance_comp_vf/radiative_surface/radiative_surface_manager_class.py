@@ -349,7 +349,8 @@ class RadiativeSurfaceManager:
     def _check_surface_visibility_sequential(self, mvfc):
         """
         Check the visibility between all the RadiativeSurface objects in the manager.
-        todo: remove function eventually
+        SEQUENTIAL VERSION of the function. for testing purposes.
+        :param mvfc: float, the minimum visibility factor criterion to consider the surface as visible.
         """
         mvfc = self._check_min_vf_criterion(mvfc)
         mesh = self._make_pyvista_polydata_mesh_out_of_all_surfaces()
@@ -440,7 +441,7 @@ class RadiativeSurfaceManager:
 
         # Run in parallel the generation of the Radiance files
         argument_list_to_add = parallel_computation_in_batches_with_return(
-            func=self.generate_radiance_inputs_for_one_surface,
+            func=self._generate_radiance_inputs_for_one_surface,
             input_tables=[[radiative_surface_obj] for radiative_surface_obj in
                           self._radiative_surface_dict.values()],
             executor_type=executor_type,
@@ -458,7 +459,7 @@ class RadiativeSurfaceManager:
 
         self._add_argument_to_radiance_argument_list(argument_list_to_add)
 
-    def generate_radiance_inputs_for_one_surface(self, radiative_surface_obj: RadiativeSurface,
+    def _generate_radiance_inputs_for_one_surface(self, radiative_surface_obj: RadiativeSurface,
                                                  path_emitter_folder: str, path_octree_folder: str,
                                                  path_receiver_folder: str,
                                                  path_output_folder: str, num_receiver_per_file: int = 1,
@@ -689,33 +690,6 @@ class RadiativeSurfaceManager:
         for emitter_id, vf_list in emitter_vf_dict.items():
             self._radiative_surface_dict[emitter_id].add_view_factors(vf_list)
 
-    def run_vf_computation_in_parallel_with_grouped_commands(self, nb_rays: int = 10000,
-                                                             command_batch_size: int = 1, num_workers=1,
-                                                             worker_batch_size=1,
-                                                             executor_type=ThreadPoolExecutor):
-        """
-        todo: To delete eventually, it is slower than the other methods
-        Compute the view factor between multiple emitter and receiver with Radiance in batches.
-        :param nb_rays: int, the number of rays to use.
-        :param command_batch_size: int, the size of the batch of commands to run one after another
-            in one command in each thread/process.
-        :param num_workers: int, the number of workers to use for the parallelization.
-        :param worker_batch_size: int, the size of the batch of commands to run in parallel.
-        :param executor_type: the type of executor to use for the parallelization.
-        """
-
-        self._sim_parameter_dict["num_rays"] = nb_rays
-        # todo: add the octree to the arguments (and maybe generate it)
-        input_batches = split_into_batches(self._radiance_argument_list, batch_size=command_batch_size)
-
-        parallel_computation_in_batches_with_return(
-            func=run_radiant_vf_computation_in_batches,
-            input_tables=input_batches,
-            executor_type=executor_type,
-            worker_batch_size=worker_batch_size,
-            num_workers=num_workers,
-            nb_rays=nb_rays)
-
     ###############################
     # Read the results
     ###############################
@@ -726,7 +700,6 @@ class RadiativeSurfaceManager:
         :param path_output_folder: str, the folder path where the Radiance output files are saved.
         :param num_workers: int, the number of workers to use for the parallelization.
         :param worker_batch_size: int, the size of the batch of commands to run in parallel.
-        :param executor_type: the type of executor to use for the parallelization.
         """
         _, _, _, path_output_folder = self.create_vf_simulation_folders(
             path_output_folder, return_file_path_only=True)
@@ -740,7 +713,7 @@ class RadiativeSurfaceManager:
             method_name="read_vf_from_radiance_output_files",
             path_output_folder=path_output_folder)
 
-    def adjust_radiative_surface_view_factors(self):
+    def _adjust_radiative_surface_view_factors(self):
         """
         Adjust the pairs view factors of the RadiativeSurface objects.
         """
@@ -749,7 +722,7 @@ class RadiativeSurfaceManager:
 
         for surface_id_1, radiative_surface_obj_1 in self._radiative_surface_dict.items():
             vf_list = radiative_surface_obj_1.viewed_surfaces_view_factor_list()
-            viewed_surfaces_id_list = radiative_surface_obj_1.get_viewed_surfaces_id_list()
+            viewed_surfaces_id_list = radiative_surface_obj_1.viewed_surfaces_id_list
             for surface_id_2, vf_1_2 in zip(viewed_surfaces_id_list, vf_list):
                 radiative_surface_obj_2 = self.get_radiative_surface(surface_id_2)
                 vf_2_1 = radiative_surface_obj_2.get_view_factor_from_surface_id(surface_id=surface_id_1)

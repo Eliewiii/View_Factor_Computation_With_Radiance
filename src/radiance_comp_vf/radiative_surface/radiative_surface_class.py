@@ -426,7 +426,7 @@ class RadiativeSurface:
         """
 
         # Check if the normal vectors are facing each other
-        return are_planar_surfaces_facing_each_other(self._corner_vertices,
+        return are_planar_surfaces_facing_each_other(self._centroid,  # todo: check if the centroid is enough, or using the corner vertices brings more accuracy (it shouldn't)
                                                      radiative_surface._corner_vertices,
                                                      normal_1=self._normal,
                                                      normal_2=radiative_surface._normal)

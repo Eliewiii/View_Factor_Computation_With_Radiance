@@ -103,14 +103,6 @@ def _run_radiance_vf_computation_sequential(radiative_surface_manager_obj, type:
             worker_batch_size=worker_batch_size,
             executor_type=executor_type
         )
-    elif type == "parallel_grouped_commands":
-        radiative_surface_manager_obj.run_vf_computation_in_parallel_with_grouped_commands(
-            nb_rays=nb_rays,
-            command_batch_size=command_batch_size,
-            num_workers=num_workers,
-            worker_batch_size=worker_batch_size,
-            executor_type=executor_type
-        )
     else:
         raise ValueError(f"Unknown type: {type}")
 
