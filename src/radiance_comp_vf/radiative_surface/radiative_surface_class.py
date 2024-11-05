@@ -35,19 +35,20 @@ class RadiativeSurface:
             identifier)  # Identifier, adjusted by the setter
         self._origin_identifier: str = identifier  # Original identifier, for instance from Honeybee object
         # Geometry
-        self._vertex_list: npt.NDArray[np.float64] = None  # Vertices of the surface
+        self._vertex_list: npt.NDArray[np.float64] = None  # Vertices of the surface, contours the holes
         self._area: float = None  # Area of the surface
         self._centroid: npt.NDArray[np.float64] = None  # Centroid of the surface
-        self._normal: npt.NDArray[np.float64] = None
-        self._corner_vertices: npt.NDArray[np.float64] = None
+        self._normal: npt.NDArray[np.float64] = None  # Normal vector of the surface
+        self._corner_vertices: npt.NDArray[
+            np.float64] = None  # Corner vertices of the surface for ray tracing
         #
         self._num_viewed_surfaces: int = 0
-        self._viewed_surfaces_dict: dict = {}
+        self._viewed_surfaces_dict: dict = {}  # Dictionary to get the index of the viewed surface from its id, redundant but useful
         self._viewed_surfaces_id_list: List = []
         self._viewed_surfaces_view_factor_list: List = []
         # VF properties
         self._vf_total: float = 0.  # Total view factor of the surface
-        self._vf_to_surfaces: float = 0.  # Total view factor of the other surfaces
+        self._vf_to_surfaces: float = 0.  # Total view factor to the other surfaces
         self._vf_ground: float = 0.
         self._vf_sky: float = 0.
         self._vf_air: float = 0.
@@ -62,6 +63,7 @@ class RadiativeSurface:
         return f"RadiativeSurface(identifier='{self._identifier}')"
 
     def __deepcopy__(self, memo={}):
+        # todo: to adjust if the class is modified
         new_radiative_surface = RadiativeSurface(self._identifier)
         new_radiative_surface.origin_identifier = self._origin_identifier
         new_radiative_surface.vertex_list = deepcopy(self._vertex_list, memo)
@@ -90,10 +92,14 @@ class RadiativeSurface:
     def from_vertex_list(cls, identifier: str, vertex_list: List[List[float]],
                          hole_list: List[List[List[float]]] = []) -> 'RadiativeSurface':
         """
-        Convert a PolyData with wholes to a RadiativeSurface object.
+        Convert a closed surface with wholes to a RadiativeSurface object.
+        This method was tested for planar non-intersecting surfaces and holes that are likely to be found in
+        buildings/urban environments.
+        Exotic geometries might not be correctly converted or even lead to errors.
         :param identifier: str, the identifier of the object.
         :param vertex_list: List[List[float]], the list of vertices of the object or a numpy array.
         :param hole_list: List[List[List[float]]], the list of vertices of the holes in the geometry or a numpy array.
+        :return: RadiativeSurface, the RadiativeSurface object.
         """
         vertex_array = np.array(vertex_list)
         # Convert the geometry array with wholes to a vertex list
@@ -112,13 +118,14 @@ class RadiativeSurface:
                                                    emissivity: float = 0., reflectivity: float = 0.,
                                                    transmissivity: float = 0.):
         """
-        Convert a PolyData with wholes to a RadiativeSurface object.
+        Same as from_vertex_list method but set as well radiative properties.
         :param identifier: str, the identifier of the object.
         :param vertex_list: List[List[float]], the list of vertices of the object.
         :param hole_list: List[List[List[float]]], the list of vertices of the holes in the geometry.
         :param emissivity: float, the emissivity of the surface.
         :param reflectivity: float, the reflectivity of the surface.
         :param transmissivity: float, the transmissivity of the surface.
+        :return: RadiativeSurface, the RadiativeSurface object.
         """
         radiative_surface_obj = cls.from_vertex_list(identifier=identifier, vertex_list=vertex_list,
                                                      hole_list=hole_list)
@@ -129,7 +136,8 @@ class RadiativeSurface:
     @classmethod
     def from_polydata(cls, identifier: str, polydata: PolyData):
         """
-        Convert a PolyData to a RadiativeSurface object.
+        Same as from_vertex_list method but takes a PyVista PolyData object as input.
+        Does not consider holes in the geometry as the PolyData object does not contain this information.
         :param identifier: str, the identifier of the object.
         :param polydata: PolyData, the polydata to convert.
         """
@@ -237,6 +245,11 @@ class RadiativeSurface:
     def to_pyvista_polydata(self) -> PolyData:
         """
         Convert the RadiativeSurface object to a PyVista PolyData object.
+        Note that it removes/fills the holes in the geometry.
+        It is meant to be used when checking the visibility of the surfaces with Pyvista.
+        The holes in surfaces being due to windows especially, it is not a problem to fill them.
+        For more advanced operations, the original geometry should be used in a different way and the source
+            code must be adjusted.
         """
         return numpy_array_surface_to_polydata(
             compute_exterior_boundary_of_numpy_array_planar_surface_with_contoured_holes(self._vertex_list))
@@ -323,9 +336,9 @@ class RadiativeSurface:
         """
         Initialize the viewed surfaces list.
         """
-        self._viewed_surfaces_id_list= []
+        self._viewed_surfaces_id_list = []
 
-    def add_viewed_surfaces(self, viewed_surface_id_list: List[str],overwrite=False):
+    def add_viewed_surfaces(self, viewed_surface_id_list: List[str], overwrite=False):
         """
         Add a viewed surface to the current surface.
         :param viewed_surface_id_list: str or [str], the identifier of the viewed surface.
@@ -349,14 +362,15 @@ class RadiativeSurface:
         """
         Add the view factors of the viewed surfaces.
         For complexity reasons, the view factors are assumed to be added in the order of the viewed surfaces list.
-        The logic in the RadiativeSurfaceManager object is responsible for the correct order.
+        The logic in the RadiativeSurfaceManager object is responsible for sorting the results according to the batch number.
         As the view factors are computed by numbered batches, from an ordered list of viewed surfaces, the order of the
         view factors is the same as the order of the viewed surfaces.
         :param view_factor_list: List[float], the list of view factors.
         """
         if len(view_factor_list) != self._num_viewed_surfaces:
-            raise ValueError(f"The length of the view factor list ({len(view_factor_list)}) must be equal to the number "
-                             f"of viewed surfaces ({self._num_viewed_surfaces}).")
+            raise ValueError(
+                f"The length of the view factor list ({len(view_factor_list)}) must be equal to the number "
+                f"of viewed surfaces ({self._num_viewed_surfaces}).")
         self._viewed_surfaces_view_factor_list.extend(view_factor_list)
 
     # =========================================================
@@ -364,7 +378,8 @@ class RadiativeSurface:
     # =========================================================
 
     def are_other_surfaces_visible(self, radiative_surface_list: List['RadiativeSurface'],
-                                   context_pyvista_polydata_mesh: PolyData, mvfc: float, ray_traced_check: bool = True,
+                                   context_pyvista_polydata_mesh: PolyData, mvfc: float,
+                                   ray_traced_check: bool = True,
                                    ray_tracing_among_all_all_corners: bool = False) -> List[str]:
         """
         Check if the other surfaces are visible from the current surface.
@@ -383,14 +398,16 @@ class RadiativeSurface:
         visible_surfaces_id_list = []
         for radiative_surface in radiative_surface_list:
             if self._is_seeing_other_surface(radiative_surface=radiative_surface,
-                                             context_pyvista_polydata_mesh=context_pyvista_polydata_mesh, mvfc=mvfc,
+                                             context_pyvista_polydata_mesh=context_pyvista_polydata_mesh,
+                                             mvfc=mvfc,
                                              ray_traced_check=ray_traced_check,
                                              ray_tracing_among_all_all_corners=ray_tracing_among_all_all_corners):
                 visible_surfaces_id_list.append(radiative_surface._identifier)
         return visible_surfaces_id_list
 
     def _is_seeing_other_surface(self, radiative_surface: 'RadiativeSurface',
-                                 context_pyvista_polydata_mesh: PolyData, mvfc: float, ray_traced_check: bool = True,
+                                 context_pyvista_polydata_mesh: PolyData, mvfc: float,
+                                 ray_traced_check: bool = True,
                                  ray_tracing_among_all_all_corners: bool = False) -> bool:
         """
         Check if two surfaces are facing each other.
@@ -427,7 +444,8 @@ class RadiativeSurface:
         """
 
         # Check if the normal vectors are facing each other
-        return are_planar_surfaces_facing_each_other(self._centroid,  # todo: check if the centroid is enough, or using the corner vertices brings more accuracy (it shouldn't)
+        return are_planar_surfaces_facing_each_other(self._centroid,
+                                                     # todo: check if the centroid is enough, or using the corner vertices brings more accuracy (it shouldn't)
                                                      radiative_surface._corner_vertices,
                                                      normal_1=self._normal,
                                                      normal_2=radiative_surface._normal)
