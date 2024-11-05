@@ -26,17 +26,18 @@ FORBIDDEN_CHARACTERS_NAME_SURFACE_RADIANCE = [' ', '-', '.', ',', ';', ':']
 
 class RadiativeSurface:
     """
-    Class of surfaces for radiative simulations
+    Class of surfaces for radiative simulations.
+
     """
 
     def __init__(self, identifier: str):
         self._identifier: str = self.adjust_identifier_for_radiance(
             identifier)  # Identifier, adjusted by the setter
-        self._origin_identifier: str = identifier
+        self._origin_identifier: str = identifier  # Original identifier, for instance from Honeybee object
         # Geometry
-        self._vertex_list: npt.NDArray[np.float64] = None
-        self._area: float = None
-        self._centroid: npt.NDArray[np.float64] = None
+        self._vertex_list: npt.NDArray[np.float64] = None  # Vertices of the surface
+        self._area: float = None  # Area of the surface
+        self._centroid: npt.NDArray[np.float64] = None  # Centroid of the surface
         self._normal: npt.NDArray[np.float64] = None
         self._corner_vertices: npt.NDArray[np.float64] = None
         #
