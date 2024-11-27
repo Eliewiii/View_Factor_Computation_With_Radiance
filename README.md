@@ -1,6 +1,6 @@
 # Radiance Comp VF
 
-**Radiance Comp VF** is a Python package designed to compute the view factors between surfaces using Radiance.
+*Radiance Comp VF* is a Python package designed to compute the view factors between surfaces using Radiance.
 This package simplifies complex radiative computations for various engineering and architectural applications.
 
 The package is still under construction. Most of the key features are already implemented, but some instability ,might 
