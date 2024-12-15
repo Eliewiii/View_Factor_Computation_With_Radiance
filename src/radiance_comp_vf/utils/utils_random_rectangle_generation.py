@@ -12,6 +12,7 @@ from typing import List
 
 def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
                                max_distance_factor: float = 100., parallel_coaxial_squares: bool = False,
+                               nb_ref_rectangles: int = 1,
                                nb_random_rectangles: int = 1) -> [pv.Rectangle, List[pv.Rectangle]]:
     """
     Generate a reference rectangle and a random rectangle that faces the reference rectangle.
@@ -19,6 +20,7 @@ def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
     :param max_size: The maximum size of an edge of the rectangles.
     :param max_distance_factor: The maximum distance factor between the reference rectangle and the random rectangle.
     :param parallel_coaxial_squares: If True, the width of the rectangle is set to 1. to make a normalized square.
+    :param nb_ref_rectangles: The number of reference rectangles to generate.
     :param nb_random_rectangles: The number of random rectangles to generate.
     :return: The reference rectangle and the list of random rectangle.
     """
@@ -32,27 +34,27 @@ def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
             width = 1.
         else:
             width = random.uniform(min_size, max_size)
-        pointa = [1., 0., 0.]
-        pointb = [1., width, 0.]
-        pointc = [0., width, 0.]
-        pointd = [0., 0., 0.]
+        pointa = [0.5, -0.5 * width, 0.]
+        pointb = [0.5, 0.5 * width, 0.]
+        pointc = [-0.5, 0.5 * width, 0.]
+        pointd = [-0.5, -0.5 * width, 0.]
+
         return pv.Rectangle([pointa, pointb, pointc])
 
-    def generate_random_rectangle(ref_rectangle: pv.Rectangle,
-                                  parallel_coaxial_squares: bool = False) -> pv.Rectangle:
+    def generate_random_rectangle(parallel_coaxial_squares: bool = False) -> pv.Rectangle:
         """
         Generate a random rectangle that faces the reference rectangle.
         :param ref_rectangle: The reference rectangle.
         :param parallel_coaxial_squares: If True, the width of the rectangle is set to 1. to make a normalized square.
         """
+        ref_rectangle_centroid = np.array([0., 0., 0.])
+        ref_rectangle_normal_unit_vector = np.array([0., 0., 1.])
         if not parallel_coaxial_squares:
             # Select a random vertex for the centroid of the new rectangle
-            ref_rectangle_centroid = np.array(ref_rectangle.center)
             rectangle_centroid = random_point_with_maximum_distance_from_point(point=ref_rectangle_centroid,
                                                                                max_distance=max_distance,
                                                                                ensure_z_posive=True)
             # Select a random normal unit vector for the new rectangle
-            ref_rectangle_normal_unit_vector = rectangle_normal(ref_rectangle)
             rectangle_normal_unit_vector = random_face_normal_vector_facing_face(
                 vertex_ref=ref_rectangle_centroid, normal_ref=ref_rectangle_normal_unit_vector,
                 vertex_new=rectangle_centroid, normalize=True)
@@ -64,13 +66,11 @@ def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
             random_length = random.uniform(min_size, max_size)
         else:
             # Select a random vertex for the centroid of the new rectangle
-            ref_rectangle_centroid = np.array(ref_rectangle.center)
             rectangle_centroid = random_point_with_maximum_distance_from_point(point=ref_rectangle_centroid,
                                                                                max_distance=max_distance,
                                                                                ensure_z_posive=True,
                                                                                enforce_z_direction=True)
             # Select a random normal unit vector for the new rectangle
-            ref_rectangle_normal_unit_vector = rectangle_normal(ref_rectangle)
             rectangle_normal_unit_vector = np.array([0., 0., -1.])
             # Select random orthogonal unit vectors for the new rectangle
             (ortho_vec1, ortho_vec2) = random_orthonormal_vectors(normal_vec=rectangle_normal_unit_vector,
@@ -94,13 +94,15 @@ def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
     # Set the maximum distance with an arbitrary factor
     max_distance = max_distance_factor * max_size
     # Generate the reference rectangle
-    ref_rectangle = generate_ref_rectangle_in_xy_plane(parallel_coaxial_squares=parallel_coaxial_squares)
+    ref_rectangle_list = [
+        generate_ref_rectangle_in_xy_plane(parallel_coaxial_squares=parallel_coaxial_squares)
+        for i in range(nb_ref_rectangles)]
     # Generate the random rectangle
     random_rectangle_list = [
-        generate_random_rectangle(ref_rectangle, parallel_coaxial_squares=parallel_coaxial_squares) for
+        generate_random_rectangle(parallel_coaxial_squares=parallel_coaxial_squares) for
         i in range(nb_random_rectangles)]
 
-    return ref_rectangle, random_rectangle_list
+    return ref_rectangle_list, random_rectangle_list
 
 
 def random_face_normal_vector_facing_face(vertex_ref: np.ndarray, normal_ref: np.ndarray,
@@ -271,3 +273,45 @@ def random_nonzero_vector(ensure_z_posive: bool = False, ensure_z_negative=False
                 return normalize_vector(rand_vec)
             return rand_vec
     raise ValueError("Could not generate a nonzero vector after 100 attempts")
+
+
+def are_rectangles_intersecting(rectangle_1: pv.Rectangle, rectangle_2_list: List[pv.Rectangle]) -> List[
+    bool]:
+    """
+    Check if two rectangles are intersecting.
+    :param rectangle_1: The first rectangle.
+    :param rectangle_2_list: List of second rectangles.
+    :return: True if the rectangles are intersecting, False otherwise.
+    """
+    tri_1 = rectangle_1.triangulate()
+    tri_2_list = [rectangle.triangulate() for rectangle in rectangle_2_list]
+    return [tri_1.intersection(tri_2) for tri_2 in tri_2_list]
+
+
+if __name__ == "__main__":
+    None
+    # ref_rectangle, random_rectangle_list = generate_random_rectangles(min_size=0.0001, max_size=100.,
+    #                                                                   max_distance_factor=100.,
+    #                                                                   parallel_coaxial_squares=False,
+    #                                                                   nb_random_rectangles=1)
+    # print(ref_rectangle.center)
+    # print(rectangle_normal(ref_rectangle, normalize=True))
+    # tri_1 = ref_rectangle.triangulate()
+    # tri_2 = random_rectangle_list[0].triangulate()
+    # # # pv.PolyDataFilters.intersection()
+    # inter = tri_1.intersection(tri_2)
+    # print(len(inter[0].points))
+    # print(inter)
+    #
+    # # Create two rectangles
+    # rect1 = pv.Rectangle([[0, 0, 0.], [1, 0, 0.], [1, 1, 0.]])
+    # rect2 = pv.Rectangle([[0.5, 0.5, -0.5], [1, 0.5, 0], [0.5, 0.5, 0.5]])
+    # # Triangulate the rectangles
+    # triangulated_rect1 = rect1.triangulate()
+    # triangulated_rect2 = rect2.triangulate()
+    #
+    # inter = triangulated_rect1.intersection(triangulated_rect2)
+    #
+    # print(inter[0])
+    # # print(random_rectangle_list)
+    # Plot the reference and random rectangles
