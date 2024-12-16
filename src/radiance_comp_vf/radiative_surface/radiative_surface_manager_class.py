@@ -675,14 +675,14 @@ class RadiativeSurfaceManager:
         """
         self._sim_parameter_dict["num_rays"] = nb_rays
 
-        result = parallel_computation_in_batches_with_return(
+        command_returned_vf_list = parallel_computation_in_batches_with_return(
             func=compute_vf_between_emitter_and_receivers_radiance_no_output,
             input_tables=self._radiance_argument_list,
             executor_type=executor_type,
             worker_batch_size=worker_batch_size,
             num_workers=num_workers,
             nb_rays=nb_rays)
-        return result
+
 
         # Postprocessing to first group the results by emitter and then by batch, then merge the VF list
         sorted_command_returned_vf_list = sort_table_by_column(command_returned_vf_list, list_of_column_index_to_sort=[0, 1])
