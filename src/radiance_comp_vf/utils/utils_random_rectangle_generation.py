@@ -4,6 +4,7 @@
 import sys
 
 import random
+import math
 
 import numpy as np
 import pyvista as pv
@@ -33,7 +34,8 @@ def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
         if parallel_coaxial_squares:
             width = 1.
         else:
-            width = random.uniform(min_size, max_size)
+            width=random_log_uniform(min_size, max_size)
+            # width = random.uniform(min_size, max_size)
         pointa = [0.5, -0.5 * width, 0.]
         pointb = [0.5, 0.5 * width, 0.]
         pointc = [-0.5, 0.5 * width, 0.]
@@ -62,8 +64,8 @@ def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
             (ortho_vec1, ortho_vec2) = random_orthonormal_vectors(normal_vec=rectangle_normal_unit_vector,
                                                                   normalize=True)
             # Size of the random rectangle
-            random_width = random.uniform(min_size, max_size)
-            random_length = random.uniform(min_size, max_size)
+            random_width = random_log_uniform(min_size, max_size)
+            random_length = random_log_uniform(min_size, max_size)
         else:
             # Select a random vertex for the centroid of the new rectangle
             rectangle_centroid = random_point_with_maximum_distance_from_point(point=ref_rectangle_centroid,
@@ -76,7 +78,7 @@ def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
             (ortho_vec1, ortho_vec2) = random_orthonormal_vectors(normal_vec=rectangle_normal_unit_vector,
                                                                   normalize=True, enforce_y_x=True)
             # Size of the random rectangle
-            random_width = random.uniform(min_size, max_size)
+            random_width = random_log_uniform(min_size, max_size)
             random_length = random_width
 
         # Generate the random rectangle ensuring the orientation of the rectangle according to the normal vector
@@ -163,6 +165,8 @@ def random_orthonormal_vectors(normal_vec: np.ndarray, normalize: bool = False, 
         return ortho_vec1, ortho_vec2
     # Generate a random vector
     rand_vec = non_parallel_random_nonzero_vector(normal_vec=normal_vec)
+    rand_vec = normalize_vector(vector=rand_vec)
+    normal_vec = normalize_vector(normal_vec)
     # Project rand_vec onto normal_vec to get a component parallel to normal_vec
     parallel_component = np.dot(rand_vec, normal_vec) * normal_vec
     # Subtract the parallel component from rand_vec to get a vector perpendicular to normal_vec
@@ -287,6 +291,15 @@ def are_rectangles_intersecting(rectangle_1: pv.Rectangle, rectangle_2_list: Lis
     tri_2_list = [rectangle.triangulate() for rectangle in rectangle_2_list]
     return [tri_1.intersection(tri_2) for tri_2 in tri_2_list]
 
+
+def random_log_uniform(a, b):
+    # Ensure a < b and both are positive
+    if a <= 0 or b <= 0:
+        raise ValueError("Both boundaries must be positive and non-zero.")
+    lower = math.log(a)
+    upper = math.log(b)
+    log_uniform_random = random.uniform(lower, upper)
+    return math.exp(log_uniform_random)
 
 if __name__ == "__main__":
     None
