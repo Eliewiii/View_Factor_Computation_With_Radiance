@@ -12,6 +12,7 @@ from typing import List
 
 
 def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
+                               min_distance: float = sys.float_info.epsilon,
                                max_distance_factor: float = 100., parallel_coaxial_squares: bool = False,
                                nb_ref_rectangles: int = 1,
                                nb_random_rectangles: int = 1) -> [pv.Rectangle, List[pv.Rectangle]]:
@@ -34,7 +35,7 @@ def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
         if parallel_coaxial_squares:
             width = 1.
         else:
-            width=random_log_uniform(min_size, max_size)
+            width = random_log_uniform(min_size, max_size)
             # width = random.uniform(min_size, max_size)
         pointa = [0.5, -0.5 * width, 0.]
         pointb = [0.5, 0.5 * width, 0.]
@@ -54,6 +55,7 @@ def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
         if not parallel_coaxial_squares:
             # Select a random vertex for the centroid of the new rectangle
             rectangle_centroid = random_point_with_maximum_distance_from_point(point=ref_rectangle_centroid,
+                                                                               min_distance=min_distance,
                                                                                max_distance=max_distance,
                                                                                ensure_z_posive=True)
             # Select a random normal unit vector for the new rectangle
@@ -69,6 +71,7 @@ def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
         else:
             # Select a random vertex for the centroid of the new rectangle
             rectangle_centroid = random_point_with_maximum_distance_from_point(point=ref_rectangle_centroid,
+                                                                               min_distance=min_distance,
                                                                                max_distance=max_distance,
                                                                                ensure_z_posive=True,
                                                                                enforce_z_direction=True)
@@ -95,6 +98,7 @@ def generate_random_rectangles(min_size: float = 0.0001, max_size: float = 100.,
 
     # Set the maximum distance with an arbitrary factor
     max_distance = max_distance_factor * max_size
+    min_distance = 0.1 * max_size
     # Generate the reference rectangle
     ref_rectangle_list = [
         generate_ref_rectangle_in_xy_plane(parallel_coaxial_squares=parallel_coaxial_squares)
@@ -128,6 +132,7 @@ def random_face_normal_vector_facing_face(vertex_ref: np.ndarray, normal_ref: np
 
 
 def random_point_with_maximum_distance_from_point(point: np.ndarray, max_distance: float,
+                                                  min_distance: float = sys.float_info.epsilon,
                                                   ensure_z_posive: bool = True,
                                                   enforce_z_direction: bool = False) -> np.ndarray:
     """
@@ -139,7 +144,7 @@ def random_point_with_maximum_distance_from_point(point: np.ndarray, max_distanc
     :return: The random point.
     """
     # normalize the random vector
-    random_distance = max_distance * random.uniform(sys.float_info.epsilon, 1)
+    random_distance = max_distance * random.uniform(min_distance / max_distance, 1)
     # make a random vector
     if enforce_z_direction:
         random_unit_vector = np.array([0, 0, 1])
@@ -300,6 +305,7 @@ def random_log_uniform(a, b):
     upper = math.log(b)
     log_uniform_random = random.uniform(lower, upper)
     return math.exp(log_uniform_random)
+
 
 if __name__ == "__main__":
     None
