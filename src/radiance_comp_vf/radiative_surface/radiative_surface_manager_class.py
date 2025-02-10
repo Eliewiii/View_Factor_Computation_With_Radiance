@@ -6,6 +6,8 @@ import os
 import pickle
 import warnings
 
+import numpy as np
+
 from math import ceil
 from typing import List
 from copy import deepcopy
@@ -267,7 +269,8 @@ class RadiativeSurfaceManager:
     # Whole simulation process
     # -----------------------------------------------------------------
     def run_view_factor_computation(self, path_root_simulation_folder: str, num_receiver_per_file: int = 1,
-                                    num_workers=1, worker_batch_size=1, executor_type_radiance_call=ProcessPoolExecutor,
+                                    num_workers=1, worker_batch_size=1,
+                                    executor_type_radiance_call=ProcessPoolExecutor,
                                     overwrite_folders: bool = False,
                                     consider_octree: bool = True, one_octree_for_all: bool = False):
         """
@@ -364,7 +367,8 @@ class RadiativeSurfaceManager:
 
     @staticmethod
     def _check_visibility_of_surface_chunk(*radiative_surface_id_list: List[str],
-                                           radiative_surface_manager_obj: 'RadiativeSurfaceManager', mvfc: float,
+                                           radiative_surface_manager_obj: 'RadiativeSurfaceManager',
+                                           mvfc: float,
                                            ray_traced_check: bool,
                                            ray_tracing_among_all_all_corners: bool):
         """
@@ -386,7 +390,8 @@ class RadiativeSurfaceManager:
                 radiative_surface_id] = radiative_surface_manager_obj.get_radiative_surface(
                 radiative_surface_id).are_other_surfaces_visible(
                 radiative_surface_list=radiative_surface_manager_obj._radiative_surface_dict.values(),
-                context_pyvista_polydata_mesh=pyvista_polydata_mesh, mvfc=mvfc, ray_traced_check=ray_traced_check,
+                context_pyvista_polydata_mesh=pyvista_polydata_mesh, mvfc=mvfc,
+                ray_traced_check=ray_traced_check,
                 ray_tracing_among_all_all_corners=ray_tracing_among_all_all_corners)
         return visibility_result_dict
 
@@ -460,11 +465,11 @@ class RadiativeSurfaceManager:
         self._add_argument_to_radiance_argument_list(argument_list_to_add)
 
     def _generate_radiance_inputs_for_one_surface(self, radiative_surface_obj: RadiativeSurface,
-                                                 path_emitter_folder: str, path_octree_folder: str,
-                                                 path_receiver_folder: str,
-                                                 path_output_folder: str, num_receiver_per_file: int = 1,
-                                                 consider_octree: bool = True,
-                                                 path_one_octree_file: str = None):
+                                                  path_emitter_folder: str, path_octree_folder: str,
+                                                  path_receiver_folder: str,
+                                                  path_output_folder: str, num_receiver_per_file: int = 1,
+                                                  consider_octree: bool = True,
+                                                  path_one_octree_file: str = None):
         """
         Generate the Radiance input files for one RadiativeSurface object.
         :param radiative_surface_obj: RadiativeSurface, the RadiativeSurface object.
@@ -626,7 +631,8 @@ class RadiativeSurfaceManager:
         for input_arg in self._radiance_argument_list:
             compute_vf_between_emitter_and_receivers_radiance(*input_arg, nb_rays=nb_rays)
 
-    def _run_radiance_vf_computation_in_parallel(self, nb_rays: int = 10000, num_workers=1, worker_batch_size=1,
+    def _run_radiance_vf_computation_in_parallel(self, nb_rays: int = 10000, num_workers=1,
+                                                 worker_batch_size=1,
                                                  executor_type=ThreadPoolExecutor):
         """
         Compute the view factor between multiple emitter and receiver with Radiance in batches.
@@ -655,14 +661,15 @@ class RadiativeSurfaceManager:
             command_returned_vf_list.append(
                 compute_vf_between_emitter_and_receivers_radiance_no_output(*input_arg, nb_rays=nb_rays))
         # Postprocessing to first group the results by emitter and then by batch, then merge the VF list
-        sorted_command_returned_vf_list = sort_table_by_column(command_returned_vf_list, list_of_column_index_to_sort=[0, 1])
-        emitter_vf_dict = merge_sublists_to_dict(sorted_command_returned_vf_list, index_key_column=0, index_merge_column=2)
+        sorted_command_returned_vf_list = sort_table_by_column(command_returned_vf_list,
+                                                               list_of_column_index_to_sort=[0, 1])
+        emitter_vf_dict = merge_sublists_to_dict(sorted_command_returned_vf_list, index_key_column=0,
+                                                 index_merge_column=2)
         for emitter_id, vf_list in emitter_vf_dict.items():
             self._radiative_surface_dict[emitter_id].add_view_factors(vf_list)
 
-
-
-    def _run_radiance_vf_computation_in_parallel_without_output_files(self, nb_rays: int = 10000, num_workers=1,
+    def _run_radiance_vf_computation_in_parallel_without_output_files(self, nb_rays: int = 10000,
+                                                                      num_workers=1,
                                                                       worker_batch_size=1,
                                                                       executor_type=ProcessPoolExecutor):
         """
@@ -683,10 +690,11 @@ class RadiativeSurfaceManager:
             num_workers=num_workers,
             nb_rays=nb_rays)
 
-
         # Postprocessing to first group the results by emitter and then by batch, then merge the VF list
-        sorted_command_returned_vf_list = sort_table_by_column(command_returned_vf_list, list_of_column_index_to_sort=[0, 1])
-        emitter_vf_dict = merge_sublists_to_dict(sorted_command_returned_vf_list, index_key_column=0, index_merge_column=2)
+        sorted_command_returned_vf_list = sort_table_by_column(command_returned_vf_list,
+                                                               list_of_column_index_to_sort=[0, 1])
+        emitter_vf_dict = merge_sublists_to_dict(sorted_command_returned_vf_list, index_key_column=0,
+                                                 index_merge_column=2)
         for emitter_id, vf_list in emitter_vf_dict.items():
             self._radiative_surface_dict[emitter_id].add_view_factors(vf_list)
 
@@ -694,7 +702,7 @@ class RadiativeSurfaceManager:
     # Read the results
     ###############################
     def _read_vf_from_radiance_output_files(self, path_output_folder: str,
-                                           num_workers=1, worker_batch_size=1):
+                                            num_workers=1, worker_batch_size=1):
         """
         Read the view factor from the Radiance output files.
         :param path_output_folder: str, the folder path where the Radiance output files are saved.
@@ -759,6 +767,47 @@ class RadiativeSurfaceManager:
         :return: float, the adjusted view factor from surface 1 to surface 2.
         """
         return vf_2_1 * area_2 / area_1
+
+    # ----------------------------------------------------------
+    # Generate VF matrices
+    # ----------------------------------------------------------
+
+    def generate_view_factor_matrix_f_star(self) -> np.ndarray:
+        """
+        Generate the view factor matrix F*, with F_{ij} = d_{ij} - F_{ij}, with d the kronecker delta.
+        Please refer to the documentation for more information about the view factor matrix.
+        :return: np.ndarray, the view factor matrix F*.
+
+        todo: test_function
+        """
+        n_surface = len(self._radiative_surface_dict)
+        f_star = np.zeros((n_surface, n_surface))
+        for i, radiative_surface_obj in enumerate(self._radiative_surface_dict.values()):
+            for j, viewed_surface_id in enumerate(radiative_surface_obj.viewed_surfaces_id_list):
+                f_star[i, j] = int(i == j) - self._radiative_surface_dict[
+                    viewed_surface_id].get_view_factor_from_surface_id(
+                    surface_id=radiative_surface_obj.identifier)
+
+        return f_star
+
+    def generate_view_factor_matrix_f_star_epsilon(self) -> np.ndarray:
+        """
+        Generate the view factor matrix F*, with F^{epsilon}_{ij} = d_{ij} - ( 1 - epsilon_i ) * F_{ij}, with d the kronecker delta.
+        Please refer to the documentation for more information about the view factor matrix.
+        :return: np.ndarray, the view factor matrix F*.
+
+        todo: test_function
+        """
+        n_surface = len(self._radiative_surface_dict)
+        f_star_epsilon = np.zeros((n_surface, n_surface))
+        for i, radiative_surface_obj in enumerate(self._radiative_surface_dict.values()):
+            for j, viewed_surface_id in enumerate(radiative_surface_obj.viewed_surfaces_id_list):
+                f_star_epsilon[i, j] = int(i == j) - radiative_surface_obj.reflectivity * \
+                                       self._radiative_surface_dict[
+                                           viewed_surface_id].get_view_factor_from_surface_id(
+                                           surface_id=radiative_surface_obj.identifier)
+
+        return f_star_epsilon
 
     # ----------------------------------------------------------
     # Check methods
