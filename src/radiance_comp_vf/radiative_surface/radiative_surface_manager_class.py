@@ -809,6 +809,24 @@ class RadiativeSurfaceManager:
 
         return f_star_epsilon
 
+    def generate_emissivity_matrix(self) -> np.ndarray:
+        """
+        Genereate the emissivity matrix E, with E_{ij} = emissivity_i  if i == j, 0 otherwise.
+        Please refer to the documentation for more information about the view factor matrix.
+        :return: np.ndarray, the view factor matrix F*.
+
+        todo: test_function
+        """
+        n_surface = len(self._radiative_surface_dict)
+        epsilon_mt = np.zeros((n_surface, n_surface))
+        for i, radiative_surface_obj in enumerate(self._radiative_surface_dict.values()):
+                epsilon_mt[i, i] = radiative_surface_obj.emissivity
+
+        return epsilon_mt
+
+
+
+
     # ----------------------------------------------------------
     # Check methods
     # ----------------------------------------------------------
