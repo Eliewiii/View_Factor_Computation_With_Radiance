@@ -11,6 +11,7 @@ import numpy as np
 from math import ceil
 from typing import List
 from copy import deepcopy
+from scipy import sparse
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from pyvista import PolyData
@@ -44,6 +45,9 @@ class RadiativeSurfaceManager:
 
     def __init__(self):
         self._radiative_surface_dict: dict = {}
+        self._radiative_surface_id_list: List[str] = []
+        self._num_surface = 0
+        # Radiance arguments
         self._radiance_argument_list: List[List] = []
         # Simulation parameters
         self._sim_parameter_dict = {"num_rays": None, "num_receiver_per_file": None}
@@ -82,7 +86,7 @@ class RadiativeSurfaceManager:
         radiative_surface_manager = cls()
         # Generate the random rectangles PolyData
         for i in range(num_ref_rectangles):
-            ref_rectangles, random_rectangle_list = generate_random_rectangles(
+            ref_rectangle_list, random_rectangle_list = generate_random_rectangles(
                 nb_random_rectangles=num_random_rectangle, min_size=min_size, max_size=max_size,
                 max_distance_factor=max_distance_factor,
                 parallel_coaxial_squares=parallel_coaxial_squares)
@@ -90,7 +94,8 @@ class RadiativeSurfaceManager:
             id_ref = f"ref_{i}"
             id_random_list = [f"random_{j}_ref_{i}" for j in range(num_random_rectangle)]
             # Convert the PolyData to RadiativeSurface objects
-            ref_rad_surface_obj = RadiativeSurface.from_polydata(identifier=id_ref, polydata=ref_rectangles)
+            ref_rad_surface_obj = RadiativeSurface.from_polydata(identifier=id_ref,
+                                                                 polydata=ref_rectangle_list[0])
             random_rad_surface_obj_list = [
                 RadiativeSurface.from_polydata(identifier=id_random, polydata=random_rectangle)
                 for id_random, random_rectangle in zip(id_random_list, random_rectangle_list)]
@@ -127,7 +132,7 @@ class RadiativeSurfaceManager:
             raise ValueError("The number of rectangles must be at least 2.")
         radiative_surface_manager = cls()
         # Generate the random rectangles PolyData
-        ref_rectangles, random_rectangle_list = generate_random_rectangles(
+        ref_rectangle_list, random_rectangle_list = generate_random_rectangles(
             nb_random_rectangles=num_rectangles - 1, min_size=min_size, max_size=max_size,
             max_distance_factor=max_distance_factor,
             parallel_coaxial_squares=parallel_coaxial_squares)
@@ -135,7 +140,8 @@ class RadiativeSurfaceManager:
         id_ref = f"rect_{0}"
         id_random_list = [f"rect_{i}" for i in range(1, num_rectangles)]
         # Convert the PolyData to RadiativeSurface objects
-        ref_rad_surface_obj = RadiativeSurface.from_polydata(identifier=id_ref, polydata=ref_rectangles)
+        ref_rad_surface_obj = RadiativeSurface.from_polydata(identifier=id_ref,
+                                                             polydata=ref_rectangle_list[0])
         ref_rad_surface_obj.add_viewed_surfaces(id_random_list)
 
         random_rad_surface_obj_list = [
@@ -185,6 +191,10 @@ class RadiativeSurfaceManager:
     def sim_parameter_dict(self):
         return deepcopy(self._sim_parameter_dict)
 
+    @property
+    def num_surface(self):
+        return self._num_surface
+
     # -----------------------------------------------------------------
     # Add surfaces
     # -----------------------------------------------------------------
@@ -217,6 +227,8 @@ class RadiativeSurfaceManager:
             raise ValueError(
                 f"The RadiativeSurface id {radiative_surface.identifier} object already exists in the surface manager.")
         self._radiative_surface_dict[radiative_surface.identifier] = radiative_surface
+        self._radiative_surface_id_list.append(radiative_surface.identifier)
+        self._num_surface += 1
 
     # -----------------------------------------------------------------
     # Access to the surface
@@ -772,44 +784,37 @@ class RadiativeSurfaceManager:
     # Generate VF matrices
     # ----------------------------------------------------------
 
-    def generate_view_factor_matrix_f_star(self) -> np.ndarray:
+    def _generate_view_factor_matrix(self) -> np.ndarray:
         """
         Generate the view factor matrix F*, with F_{ij} = d_{ij} - F_{ij}, with d the kronecker delta.
         Please refer to the documentation for more information about the view factor matrix.
         :return: np.ndarray, the view factor matrix F*.
-
-        todo: test_function
         """
-        n_surface = len(self._radiative_surface_dict)
-        f_star = np.zeros((n_surface, n_surface))
-        for i, radiative_surface_obj in enumerate(self._radiative_surface_dict.values()):
-            for j, viewed_surface_id in enumerate(radiative_surface_obj.viewed_surfaces_id_list):
-                f_star[i, j] = int(i == j) - self._radiative_surface_dict[
-                    viewed_surface_id].get_view_factor_from_surface_id(
-                    surface_id=radiative_surface_obj.identifier)
+        # Create lists to store non-zero values and their indices
+        data = []
+        rows = []
+        cols = []
+        # Simulate dynamic data generation
+        for i, radiative_surface_id in enumerate(self._radiative_surface_id_list):
+            for j, viewed_surface_id in enumerate(self._radiative_surface_id_list):
+                value = self._radiative_surface_dict[
+                    radiative_surface_id].get_view_factor_from_surface_id(
+                    surface_id=viewed_surface_id)
+                if value != 0:
+                    # Incrementally store non-zero elements
+                    data.append(value)
+                    rows.append(i)
+                    cols.append(j)
 
-        return f_star
+        # Create sparse matrix in COO format after collecting all values
+        f_mtx = sparse.coo_matrix((data, (rows, cols)), shape=(self._num_surface, self._num_surface))
 
-    def generate_view_factor_matrix_f_star_epsilon(self) -> np.ndarray:
-        """
-        Generate the view factor matrix F*, with F^{epsilon}_{ij} = d_{ij} - ( 1 - epsilon_i ) * F_{ij}, with d the kronecker delta.
-        Please refer to the documentation for more information about the view factor matrix.
-        :return: np.ndarray, the view factor matrix F*.
+        # Convert to CSR for faster operations
+        f_mtx_csr = f_mtx.tocsr()
 
-        todo: test_function
-        """
-        n_surface = len(self._radiative_surface_dict)
-        f_star_epsilon = np.zeros((n_surface, n_surface))
-        for i, radiative_surface_obj in enumerate(self._radiative_surface_dict.values()):
-            for j, viewed_surface_id in enumerate(radiative_surface_obj.viewed_surfaces_id_list):
-                f_star_epsilon[i, j] = int(i == j) - radiative_surface_obj.reflectivity * \
-                                       self._radiative_surface_dict[
-                                           viewed_surface_id].get_view_factor_from_surface_id(
-                                           surface_id=radiative_surface_obj.identifier)
+        return f_mtx_csr
 
-        return f_star_epsilon
-
-    def generate_emissivity_matrix(self) -> np.ndarray:
+    def _generate_emissivity_matrix(self) -> np.ndarray:
         """
         Genereate the emissivity matrix E, with E_{ij} = emissivity_i  if i == j, 0 otherwise.
         Please refer to the documentation for more information about the view factor matrix.
@@ -817,15 +822,39 @@ class RadiativeSurfaceManager:
 
         todo: test_function
         """
-        n_surface = len(self._radiative_surface_dict)
-        epsilon_mt = np.zeros((n_surface, n_surface))
-        for i, radiative_surface_obj in enumerate(self._radiative_surface_dict.values()):
-                epsilon_mt[i, i] = radiative_surface_obj.emissivity
+        diag_epsilon_values = [self._radiative_surface_dict[radiative_surface_id].emissivity for
+                               radiative_surface_id in self._radiative_surface_id_list]
+        epsilon_mtx_sp = sparse.diags(diag_epsilon_values, offsets=0, format='csr')
 
-        return epsilon_mt
+        return epsilon_mtx_sp
 
+    def _generate_reflectance_matrix(self) -> np.ndarray:
+        """
+        Genereate the emissivity matrix E, with E_{ij} = emissivity_i  if i == j, 0 otherwise.
+        Please refer to the documentation for more information about the view factor matrix.
+        :return: np.ndarray, the view factor matrix F*.
 
+        todo: test_function
+        """
+        diag_rho_values = [self._radiative_surface_dict[radiative_surface_id].reflectance for
+                           radiative_surface_id in self._radiative_surface_id_list]
+        rho_mtx_sp = sparse.diags(diag_rho_values, offsets=0, format='csr')
 
+        return rho_mtx_sp
+
+    def _generate_transmittance_matrix(self) -> np.ndarray:
+        """
+        Genereate the emissivity matrix E, with E_{ij} = emissivity_i  if i == j, 0 otherwise.
+        Please refer to the documentation for more information about the view factor matrix.
+        :return: np.ndarray, the view factor matrix F*.
+
+        todo: test_function
+        """
+        diag_tau_values = [self._radiative_surface_dict[radiative_surface_id].transmittance for
+                           radiative_surface_id in self._radiative_surface_id_list]
+        tau_mtx_sp = sparse.diags(diag_tau_values, offsets=0, format='csr')
+
+        return tau_mtx_sp
 
     # ----------------------------------------------------------
     # Check methods

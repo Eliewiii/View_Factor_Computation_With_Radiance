@@ -54,8 +54,8 @@ class RadiativeSurface:
         self._vf_air: float = 0.
         # Radiative properties
         self._emissivity: float = None
-        self._reflectivity: float = None
-        self._transmissivity: float = None
+        self._reflectance: float = None
+        self._transmittance: float = None
         # Preprocessed data for Radiance
         self._rad_file_content: str = None
 
@@ -71,8 +71,8 @@ class RadiativeSurface:
         new_radiative_surface.viewed_surfaces_view_factor_list = deepcopy(
             self._viewed_surfaces_view_factor_list, memo)
         new_radiative_surface.emissivity = self._emissivity
-        new_radiative_surface.reflectivity = self._reflectivity
-        new_radiative_surface.transmissivity = self._transmissivity
+        new_radiative_surface.reflectance = self._reflectance
+        new_radiative_surface.transmittance = self._transmittance
         new_radiative_surface.rad_file_content = self._rad_file_content
 
         return new_radiative_surface
@@ -115,22 +115,22 @@ class RadiativeSurface:
     @classmethod
     def from_vertex_list_with_radiative_properties(cls, identifier: str, vertex_list: List[List[float]],
                                                    hole_list: List[List[List[float]]] = [],
-                                                   emissivity: float = 0., reflectivity: float = 0.,
-                                                   transmissivity: float = 0.):
+                                                   emissivity: float = 0., reflectance: float = 0.,
+                                                   transmittance: float = 0.):
         """
         Same as from_vertex_list method but set as well radiative properties.
         :param identifier: str, the identifier of the object.
         :param vertex_list: List[List[float]], the list of vertices of the object.
         :param hole_list: List[List[List[float]]], the list of vertices of the holes in the geometry.
         :param emissivity: float, the emissivity of the surface.
-        :param reflectivity: float, the reflectivity of the surface.
-        :param transmissivity: float, the transmissivity of the surface.
+        :param reflectance: float, the reflectance of the surface.
+        :param transmittance: float, the transmittance of the surface.
         :return: RadiativeSurface, the RadiativeSurface object.
         """
         radiative_surface_obj = cls.from_vertex_list(identifier=identifier, vertex_list=vertex_list,
                                                      hole_list=hole_list)
-        radiative_surface_obj.set_radiative_properties(emissivity=emissivity, reflectivity=reflectivity,
-                                                       transmissivity=transmissivity)
+        radiative_surface_obj.set_radiative_properties(emissivity=emissivity, reflectance=reflectance,
+                                                       transmittance=transmittance)
         return radiative_surface_obj
 
     @classmethod
@@ -231,12 +231,12 @@ class RadiativeSurface:
         return self._emissivity
 
     @property
-    def reflectivity(self):
-        return self._reflectivity
+    def reflectance(self):
+        return self._reflectance
 
     @property
-    def transmissivity(self):
-        return self._transmissivity
+    def transmittance(self):
+        return self._transmittance
 
     @property
     def rad_file_content(self):
@@ -266,7 +266,7 @@ class RadiativeSurface:
             index = self.get_index_viewed_surface(surface_id)
             return self._viewed_surfaces_view_factor_list[index]
         except KeyError:
-            raise KeyError(f"The surface {surface_id} is not in the viewed surfaces list.")
+            return 0.
 
     def get_index_viewed_surface(self, viewed_surface_id: str):
         """
@@ -294,43 +294,43 @@ class RadiativeSurface:
         self._normal = compute_numpy_array_planar_surface_normal(surface_boundary=vertex_array)
         self._corner_vertices = compute_numpy_array_planar_surface_corners(surface_boundary=vertex_array)
 
-    def set_radiative_properties(self, emissivity: float = 0., reflectivity: float = 0.,
-                                 transmissivity: float = 0.):
+    def set_radiative_properties(self, emissivity: float = 0., reflectance: float = 0.,
+                                 transmittance: float = 0.):
         """
         Set the radiative properties of the surface.
         :param emissivity: float, the emissivity of the surface.
-        :param reflectivity: float, the reflectivity of the surface.
-        :param transmissivity: float, the transmissivity of the surface.
+        :param reflectance: float, the reflectance of the surface.
+        :param transmittance: float, the transmittance of the surface.
         """
         # Validate set properties
         if isinstance(emissivity, float) and 0 <= emissivity <= 1:
             self._emissivity = emissivity
         else:
             raise ValueError(f"Emissivity for surface {self._identifier} must be a float between 0 and 1.")
-        if isinstance(reflectivity, float) and 0 <= reflectivity <= 1:
-            self._reflectivity = reflectivity
+        if isinstance(reflectance, float) and 0 <= reflectance <= 1:
+            self._reflectance = reflectance
         else:
             raise ValueError(f"Emissivity for surface {self._identifier} must be a float between 0 and 1.")
-        if isinstance(transmissivity, float) and 0 <= transmissivity <= 1:
-            self._transmissivity = transmissivity
+        if isinstance(transmittance, float) and 0 <= transmittance <= 1:
+            self._transmittance = transmittance
         else:
             raise ValueError(f"Emissivity for surface {self._identifier} must be a float between 0 and 1.")
 
         # Check value integrity.
-        if sum([self._emissivity, self._reflectivity, self._transmissivity]) == 1.:
+        if sum([self._emissivity, self._reflectance, self._transmittance]) == 1.:
             return
-        elif sum([self._emissivity, self._reflectivity, self._transmissivity]) > 1.:
+        elif sum([self._emissivity, self._reflectance, self._transmittance]) > 1.:
             raise ValueError(
-                f"The sum of the emissivity, reflectivity and transmissivity of surface {self._identifier} "
+                f"The sum of the emissivity, reflectance and transmittance of surface {self._identifier} "
                 f"is not equal to 1.")
         # Adjust the properties if needed
         else:
             if self._emissivity == 0:  # Priority to emissivity
-                self._emissivity = 1. - self._reflectivity - self._transmissivity
-            elif self._reflectivity == 0:
-                self._reflectivity = 1. - self._emissivity - self._transmissivity
-            elif self._transmissivity == 0:
-                self._transmissivity = 1. - self._emissivity - self._reflectivity
+                self._emissivity = 1. - self._reflectance - self._transmittance
+            elif self._reflectance == 0:
+                self._reflectance = 1. - self._emissivity - self._transmittance
+            elif self._transmittance == 0:
+                self._transmittance = 1. - self._emissivity - self._reflectance
 
     def _init_viewed_surfaces_id_list(self):
         """

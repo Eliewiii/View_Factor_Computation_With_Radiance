@@ -63,7 +63,8 @@ class TestRadiativeSurfaceManagerInit:
         """
         radiative_surface_manager = RadiativeSurfaceManager()
         assert radiative_surface_manager._radiative_surface_dict == {}
-        assert radiative_surface_manager.context_octree is None
+        assert radiative_surface_manager._radiative_surface_id_list == []
+        assert radiative_surface_manager._num_surface == 0
         assert radiative_surface_manager._radiance_argument_list == []
 
     @pytest.mark.parametrize('radiative_surface_instance', [3], indirect=True)
