@@ -754,7 +754,10 @@ class RadiativeSurfaceManager:
         :param worker_batch_size: int, the size of the batch of commands to run in parallel.
         :param executor_type: the type of executor to use for the parallelization.
         """
+        # todo: check num ray and workers
         self._sim_parameter_dict["num_rays"] = nb_rays
+
+        # todo: run this with subprocesses not to copy multiple times the RadiativeSurfaceManager object.
 
         command_returned_vf_list = parallel_computation_in_batches_with_return(
             func=compute_vf_between_emitter_and_receivers_radiance_no_output,
