@@ -5,6 +5,8 @@ Class that manages the whole LWR simulation, especially the RadiativeSurface obj
 import os
 import pickle
 import warnings
+import subprocess
+import sys
 
 import numpy as np
 
@@ -162,6 +164,18 @@ class RadiativeSurfaceManager:
     # Core Functions
     # ----------------------------------------------------------
 
+    def reset(self):
+        """
+        Reinitialize the RadiativeSurfaceManager object.
+        """
+        self._radiative_surface_dict = {}
+        self._radiative_surface_id_list = []
+        self._num_surface = 0
+        # Radiance arguments
+        self._radiance_argument_list = []
+        # Simulation parameters
+        self._sim_parameter_dict = {"num_rays": None, "num_receiver_per_file": None}
+
     def to_pkl(self, path_folder: str, file_name: str = "radiative_surface_manager.pkl"):
         """
         Save the RadiativeSurfaceManager object to a pickle file.
@@ -187,6 +201,11 @@ class RadiativeSurfaceManager:
     # ----------------------------------------------------------
     # Properties
     # ----------------------------------------------------------
+
+    @property
+    def is_empty(self)->bool:
+        return self._num_surface == 0
+
     @property
     def sim_parameter_dict(self):
         return deepcopy(self._sim_parameter_dict)
@@ -280,6 +299,49 @@ class RadiativeSurfaceManager:
     # -----------------------------------------------------------------
     # Whole simulation process
     # -----------------------------------------------------------------
+
+    def run_view_factor_computation_in_subprocess(self,path_root_simulation_folder: str, num_receiver_per_file: int = 1,):
+        """
+
+        :return:
+        """
+        def run_parallel_task_via_subprocess(path_config_file):
+            # Call the VF computation script using subprocess and pass the configuration file
+            result = subprocess.run(
+                [sys.executable , '-m', 'radiance_comp_vf.main_vf_computation', path_config_file],
+                capture_output=True,
+                text=True
+            )
+
+        # Check if there are surfaces to perform the computation
+        if self.is_empty:
+            warnings.warn("The radiative surface manager is empty, the visibility check cannot be performed.")
+            return
+
+        # Make the config.json file to pass down the arguments to the subprocess
+        path_radiative_surface_manager_pkl =""
+
+        # Step 3: Save the configuration to a JSON file
+        config = {
+            'num_processes': 4,  # Number of parallel processes
+            'path_radiative_surface_manager_pkl': path_radiative_surface_manager_pkl  # Pass the chunks for computation
+        }
+
+        # Check the config json with a function from the radiance_comp_vf package.
+
+
+        # Pickle the radiative surface manager
+
+
+        # Save the configuration to a JSON file
+        name_config_file = 'config.json'
+        path_config_file =os.path.join("",name_config_file)
+        with open(path_config_file, 'w') as f:
+            json.dump(config, f)
+
+        # Step 4: Run the parallel computation via subprocess
+        run_parallel_task_via_subprocess(config_file)
+
     def run_view_factor_computation(self, path_root_simulation_folder: str, num_receiver_per_file: int = 1,
                                     num_workers=1, worker_batch_size=1,
                                     executor_type_radiance_call=ProcessPoolExecutor,
