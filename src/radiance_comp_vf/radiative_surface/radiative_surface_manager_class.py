@@ -300,7 +300,7 @@ class RadiativeSurfaceManager:
     # Whole simulation process
     # -----------------------------------------------------------------
 
-    def run_view_factor_computation_in_subprocess(self,path_root_simulation_folder: str, num_receiver_per_file: int = 1,):
+    def run_view_factor_computation_in_subprocess(self,path_temp_simulation_folder: str, path_result_folder:str,  num_receiver_per_file: int = 1,):
         """
 
         :return:
@@ -309,7 +309,6 @@ class RadiativeSurfaceManager:
             # Call the VF computation script using subprocess and pass the configuration file
             result = subprocess.run(
                 [sys.executable , '-m', 'radiance_comp_vf.main_vf_computation', path_config_file],
-                capture_output=True,
                 text=True
             )
 
@@ -323,6 +322,8 @@ class RadiativeSurfaceManager:
 
         # Step 3: Save the configuration to a JSON file
         config = {
+            "path_temp_simulation_folder": path_temp_simulation_folder,
+            "path_result_folder": path_result_folder,
             'num_processes': 4,  # Number of parallel processes
             'path_radiative_surface_manager_pkl': path_radiative_surface_manager_pkl  # Pass the chunks for computation
         }
