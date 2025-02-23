@@ -8,6 +8,42 @@ from typing import Callable, List, Type
 from .utils_batches import \
     split_into_batches
 
+from tqdm import tqdm
+
+
+def parallel_computation_in_batches_with_return_with_progress_bar(func: Callable, input_tables: List[list],
+                                                executor_type: Type[
+                                                    concurrent.futures.Executor] = ThreadPoolExecutor,
+                                                worker_batch_size: int = 1, num_workers: int = 4, **kwargs):
+    """
+    Runs a function in parallel using batches of input data.
+
+    :param func: Function to be called.
+    :param input_tables: List of lists, tables of input data. The order of the arguments should be the same as the function.
+    :param executor_type: Executor class, type of parallel execution (ThreadPoolExecutor or ProcessPoolExecutor).
+    :param worker_batch_size: Int, the size of the batch for each worker.
+    :param num_workers: Int, the number of workers.
+    :param kwargs: Additional keyword arguments to pass to the function.
+    """
+    results_list = []
+    input_batches = split_into_batches(input_tables, batch_size=worker_batch_size)
+
+    with executor_type(max_workers=num_workers) as executor:
+        futures = [executor.submit(run_func_in_batch_with_list_input_wrapper_with_return, func, input_batch, **kwargs)
+                   for input_batch in input_batches]
+
+        # Use tqdm to show progress
+        with tqdm(total=len(futures), desc="Processing Batches") as pbar:
+            for future in as_completed(futures):
+                try:
+                    results_list.extend(future.result())
+                except Exception as e:
+                    print(f"Task generated an exception: {e}")
+
+                pbar.update(1)  # Update progress bar
+
+    return results_list
+
 
 def parallel_computation_in_batches_with_return(func: Callable, input_tables: List[list],
                                                 executor_type: Type[

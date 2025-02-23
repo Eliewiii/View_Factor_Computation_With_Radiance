@@ -36,7 +36,7 @@ class RadiativeSurfaceManager:
     """
     # Parameters for the workers for parallel computation
     DEFAULT_WORKER_CPU_BOUND = os.cpu_count()
-    DEFAULT_WORKER_IO_BOUND = os.cpu_count() * 2
+    DEFAULT_WORKER_IO_BOUND = os.cpu_count()
     CPU_BOUND_LIMIT_MULTIPLIER = 1.5
     IO_BOUND_LIMIT_MULTIPLIER = 3
     MAX_WORKER_CPU_BOUND = os.cpu_count() * CPU_BOUND_LIMIT_MULTIPLIER
@@ -687,9 +687,8 @@ class RadiativeSurfaceManager:
         path_receiver_folder = os.path.join(path_root_simulation_folder, "receiver")
         path_output_folder = os.path.join(path_root_simulation_folder, "output")
         if not return_file_path_only:
-            create_folder(path_root_simulation_folder, overwrite=overwrite)
-            create_folder(path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder,
-                          overwrite=True)
+                create_folder(path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder,
+                              overwrite=True)
 
         return path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder
 
