@@ -25,7 +25,7 @@ from ..utils import from_receiver_rad_str_to_rad_files, from_receiver_rad_str_to
     from_emitter_rad_str_to_rad_file, split_into_batches, \
     create_folder, parallel_computation_in_batches_with_return, run_radiant_vf_computation_in_batches, \
     compute_vf_between_emitter_and_receivers_radiance, generate_random_rectangles, object_method_wrapper, \
-    flatten_table_to_lists, merge_sublists_to_dict, sort_table_by_column,check_folder_exist
+    flatten_table_to_lists, merge_sublists_to_dict, sort_table_by_column, check_folder_exist
 
 # todo: Fpr testing
 from ..utils.utils_run_radiance import compute_vf_between_emitter_and_receivers_radiance_no_output
@@ -46,6 +46,7 @@ class RadiativeSurfaceManager:
     DEFAULT_NUMBER_OF_RAYS = 100000
     DEFAULT_MIN_RAY_THRESHOLD = 10
     MAX_RECEIVER_PER_FILE = 140
+    MVFC_FACTOR = 2  # Factor for a margin of error of the MVFC to select surface
 
     def __init__(self):
         self._radiative_surface_dict: dict = {}
@@ -205,7 +206,7 @@ class RadiativeSurfaceManager:
     # ----------------------------------------------------------
 
     @property
-    def is_empty(self)->bool:
+    def is_empty(self) -> bool:
         return self._num_surface == 0
 
     @property
@@ -302,15 +303,17 @@ class RadiativeSurfaceManager:
     # Whole simulation process
     # -----------------------------------------------------------------
 
-    def run_view_factor_computation_in_subprocess(self,path_simulation_folder: str, path_result_folder:str,  num_receiver_per_file: int = 40,):
+    def run_view_factor_computation_in_subprocess(self, path_simulation_folder: str, path_result_folder: str,
+                                                  num_receiver_per_file: int = 40, ):
         """
 
         :return:
         """
+
         def run_parallel_task_via_subprocess(path_config_file):
             # Call the VF computation script using subprocess and pass the configuration file
             result = subprocess.run(
-                [sys.executable , '-m', 'radiance_comp_vf.main_vf_computation', path_config_file],
+                [sys.executable, '-m', 'radiance_comp_vf.main_vf_computation', path_config_file],
                 text=True
             )
 
@@ -320,27 +323,20 @@ class RadiativeSurfaceManager:
             return
 
         # Make the config.json file to pass down the arguments to the subprocess
-        path_radiative_surface_manager_pkl =""
+        path_radiative_surface_manager_pkl = ""
 
-        self.make_main_config_file(path_simulation_folder, path_radiative_surface_manager_pkl, path_result_folder)
-
-
-
+        self.make_main_config_file(path_simulation_folder, path_radiative_surface_manager_pkl,
+                                   path_result_folder)
 
         # Check the config json with a function from the radiance_comp_vf package.
 
-
         # Save the configuration to a JSON file
         name_config_file = 'config.json'
-        path_config_file =os.path.join("",name_config_file)
+        path_config_file = os.path.join("", name_config_file)
         with open(path_config_file, 'w') as f:
             json.dump(config, f)
 
-
-
-
         # Pickle the radiative surface manager
-
 
         # Step 4: Run the parallel computation via subprocess
         run_parallel_task_via_subprocess(path_config_file)
@@ -383,8 +379,10 @@ class RadiativeSurfaceManager:
                                  num_workers: int = 0,
                                  mvfc_check: bool = True,
                                  mvfc: float = None,
+                                 min_ray_threshold: int = 1,
                                  ray_traced_check: bool = True,
-                                 ray_tracing_among_all_corners: bool = False):
+                                 ray_tracing_among_all_corners: bool = False
+                                 ):
 
         """
         Check the visibility between all the RadiativeSurface objects in the manager.
@@ -393,13 +391,15 @@ class RadiativeSurfaceManager:
         :param num_workers: int, the number of workers to use for the parallelization.
         :param mvfc_check: bool, if True, performs the minimum visibility factor criterion check.
         :param mvfc: float, the minimum visibility factor criterion to consider the surface as visible.
+        :param
         :param ray_traced_check: bool, if True, use the ray tracing method to check the visibility.
         :param ray_tracing_among_all_corners: bool, if True and ray_traced_check is True, check the visibility
             between all the corners of the surfaces, and not only the center of face_1 to the center and corners of face_2.
+
         """
         # todo: set the chunk size to nb_surface//num_workers, and set num worker to nb thread
         num_workers = self._check_num_worker_valid(num_workers, worker_type="cpu")
-        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check, min_vf_criterion=mvfc)
+        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check, min_vf_criterion=mvfc, min_ray_threshold=min_ray_threshold)
         """
         This function necessarily uses multiprocessing, as the visibility check is a CPU-bound task.
         And as the context_polydata_mesh, required for the visibility check, need to be computed at each new process 
@@ -487,7 +487,8 @@ class RadiativeSurfaceManager:
     # -----------------------------------------------------------------
     def generate_radiance_inputs_for_all_surfaces_in_parallel(self, path_root_simulation_folder: str,
                                                               num_receiver_per_file: int = 1,
-                                                              num_workers=0, worker_batch_size=1,
+                                                              num_workers: int = 0,
+                                                              worker_batch_size: int = 1,
                                                               executor_type=ThreadPoolExecutor,
                                                               overwrite_folders: bool = False,
                                                               consider_octree: bool = True,
@@ -689,8 +690,8 @@ class RadiativeSurfaceManager:
         path_receiver_folder = os.path.join(path_root_simulation_folder, "receiver")
         path_output_folder = os.path.join(path_root_simulation_folder, "output")
         if not return_file_path_only:
-                create_folder(path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder,
-                              overwrite=True)
+            create_folder(path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder,
+                          overwrite=True)
 
         return path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder
 
@@ -954,7 +955,7 @@ class RadiativeSurfaceManager:
         return num_worker
 
     def _check_min_vf_criterion(self, mvfc_check, min_vf_criterion: float, num_ray_radiance: int = None,
-                                min_ray_threshold: int = 1) -> float:
+                                min_ray_threshold: int = None) -> float:
         """
         Check if the minimum view factor criterion is valid.
         :param min_vf_criterion: float, the minimum view factor criterion.
@@ -970,7 +971,7 @@ class RadiativeSurfaceManager:
             else:
                 # Check if the number of rays is valid, though it should be done before, it is a double check
                 self._check_num_ray(num_ray_radiance)
-                return min_ray_threshold / num_ray_radiance  # Return a float in Python
+                return min_ray_threshold / num_ray_radiance / self.MVFC_FACTOR  # Return a float in Python
         elif not isinstance(min_vf_criterion, float):
             raise ValueError("The minimum view factor criterion must be a float or None")
         elif min_vf_criterion < 0 or min_vf_criterion > 1:
@@ -1008,7 +1009,7 @@ class RadiativeSurfaceManager:
 
         return num_ray_radiance
 
-    def _check_number_of_receiver_per_rad_file(self,num_receiver_per_file: int):
+    def _check_number_of_receiver_per_rad_file(self, num_receiver_per_file: int):
         """
         Check if the number of receivers per Radiance file is valid, as Radiance has an "invisible threshold
         that seem to be dependent on the computer characteristics.
@@ -1023,22 +1024,39 @@ class RadiativeSurfaceManager:
         elif num_receiver_per_file > 140:
             raise ValueError("The number of receivers per Radiance file is high. Use a smaller value."
                              "Radiance is likely not to accept"
-                          "it. If you know what you are doing or want to try.")
+                             "it. If you know what you are doing or want to try.")
         return num_receiver_per_file
 
-    def _make_main_config_file(self,path_simulation_folder, path_pkl, path_result_folder, num_worker_cpu_bound,
-                              num_worker_io_bound,
-                              num_ray: int = 100000,
-                              mvfc_check: bool = True,
-                              mvfc: float = None,
-                              ray_traced_check: bool = True,
-                              ray_tracing_among_all_corners: bool = False,
-                              num_receiver_per_file: int = 40,
-                              overwrite_folders: bool = False,
-                              consider_octree: bool = True,
-                              one_octree_for_all: bool = False
-                              ):
+    def _make_main_config_file(self, path_simulation_folder: str, path_radiative_surface_manager_pkl: str,
+                               path_result_folder: str, num_worker_cpu_bound: int = 0,
+                               num_worker_io_bound: int = 0,
+                               num_ray: int = 100000,
+                               mvfc_check: bool = True,
+                               mvfc: float = None,
+                               ray_traced_check: bool = True,
+                               ray_tracing_among_all_corners: bool = False,
+                               num_receiver_per_file: int = 40,
+                               overwrite_folders: bool = False,
+                               consider_octree: bool = True,
+                               one_octree_for_all: bool = False) -> str:
         """
+        Make the main configuration file for the view factor computation.
+        :param path_simulation_folder: str, the folder path where the Radiance files will be saved.
+        :param path_radiative_surface_manager_pkl: str, the path of the pickled RadiativeSurfaceManager object.
+        :param path_result_folder: str, the folder path where the Radiance output files will be saved.
+        :param num_worker_cpu_bound: int, the number of workers to use for the CPU bound tasks.
+        :param num_worker_io_bound: int, the number of workers to use for the IO bound tasks.
+        :param num_ray: int, the number of rays to use for the Radiance computation.
+        :param mvfc_check: bool, if True, check the minimum view factor criterion.
+        :param mvfc: float, the minimum view factor criterion.
+        :param ray_traced_check: bool, if True, use the ray tracing method to check the visibility.
+        :param ray_tracing_among_all_corners: bool, if True and ray_traced_check is True, check the visibility
+            between all the corners of the surfaces, and not only the center of face_1 to the center and corners of face_2.
+        :param num_receiver_per_file: int, the number of receivers in the receiver rad file per batch.
+        :param overwrite_folders: bool, if True, overwrite the folders if they already exist.
+        :param consider_octree: bool, if True, consider the octree file in the Radiance command.
+        :param one_octree_for_all: bool, if True, generate only one octree file for all the surfaces, and not one per
+            emitter.
         """
         # Check if the paths to folder exist
         check_folder_exist(path_simulation_folder, path_result_folder)
@@ -1048,14 +1066,13 @@ class RadiativeSurfaceManager:
         # Check number of ray for the Radiance computation
         num_ray = self._check_num_ray(num_ray)
         # Check the minimum view factor criterion
-        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check, min_vf_criterion=mvfc, num_ray_radiance=num_ray)
+        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check, min_vf_criterion=mvfc,
+                                            num_ray_radiance=num_ray)
         # Check number receiver per file
         num_receiver_per_file = self._check_number_of_receiver_per_rad_file(num_receiver_per_file)
-
-
-
-
-        config = {
+        # Create the dictionary
+        config_dict = {
+            "path_radiative_surface_manager_pkl": path_radiative_surface_manager_pkl,
             "path_simulation_folder": path_simulation_folder,
             "path_result_folder": path_result_folder,
             "num_worker_cpu_bound": num_worker_cpu_bound,
@@ -1069,7 +1086,7 @@ class RadiativeSurfaceManager:
             "overwrite_folders": overwrite_folders,
             "consider_octree": consider_octree,
             "one_octree_for_all": one_octree_for_all
-
-
-            # Pass the chunks for computation
         }
+        # Write json file
+        with open(os.path.join(path_simulation_folder, "vf_config.json"), 'wb') as f:
+            pickle.dump(config_dict, f)
