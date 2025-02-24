@@ -380,7 +380,7 @@ class RadiativeSurface:
     def are_other_surfaces_visible(self, radiative_surface_list: List['RadiativeSurface'],
                                    context_pyvista_polydata_mesh: PolyData, mvfc: float,
                                    ray_traced_check: bool = True,
-                                   ray_tracing_among_all_all_corners: bool = False) -> List[str]:
+                                   ray_tracing_among_all_corners: bool = False) -> List[str]:
         """
         Check if the other surfaces are visible from the current surface.
         This method is intended to be used from a RadiativeSurfaceManager object only, all the inout checks are
@@ -391,7 +391,7 @@ class RadiativeSurface:
             considered or even computed (not enough rays to compute the VF without huge error). If None, the mvfc check
             is not performed.
         :param ray_traced_check: bool, if True, check visibility with ray tracing.
-        :param ray_tracing_among_all_all_corners: bool, if True and ray_traced_check is True, check the visibility
+        :param ray_tracing_among_all_corners: bool, if True and ray_traced_check is True, check the visibility
             between all the corners of the surfaces, and not only the center of face_1 to the center and corners of face_2.
         :return: List[str], the list of identifiers of the visible surfaces.
         """
@@ -401,14 +401,14 @@ class RadiativeSurface:
                                              context_pyvista_polydata_mesh=context_pyvista_polydata_mesh,
                                              mvfc=mvfc,
                                              ray_traced_check=ray_traced_check,
-                                             ray_tracing_among_all_all_corners=ray_tracing_among_all_all_corners):
+                                             ray_tracing_among_all_corners=ray_tracing_among_all_corners):
                 visible_surfaces_id_list.append(radiative_surface._identifier)
         return visible_surfaces_id_list
 
     def _is_seeing_other_surface(self, radiative_surface: 'RadiativeSurface',
                                  context_pyvista_polydata_mesh: PolyData, mvfc: float,
                                  ray_traced_check: bool = True,
-                                 ray_tracing_among_all_all_corners: bool = False) -> bool:
+                                 ray_tracing_among_all_corners: bool = False) -> bool:
         """
         Check if two surfaces are facing each other.
         :param radiative_surface: RadiativeSurface, radiative surface to check visibility with.
@@ -417,7 +417,7 @@ class RadiativeSurface:
             considered or even computed (not enough rays to compute the VF without huge error). If None, the mvfc check
             is not performed.
         :param ray_traced_check: bool, if True, check visibility with ray tracing.
-        :param ray_tracing_among_all_all_corners: bool, if True and ray_traced_check is True, check the visibility
+        :param ray_tracing_among_all_corners: bool, if True and ray_traced_check is True, check the visibility
             between all the corners of the surfaces, and not only the center of face_1 to the center and corners of face_2.
         :return: bool, True if the two surfaces are facing each other and visible, False otherwise.
         """
@@ -433,7 +433,7 @@ class RadiativeSurface:
             return False
         # Ray tracing to check if there is an obstruction
         if ray_traced_check:
-            if ray_tracing_among_all_all_corners:
+            if ray_tracing_among_all_corners:
                 return not is_ray_between_surfaces_intersect_with_context(
                     [self._centroid] + [corner for corner in self._corner_vertices],
                     [radiative_surface._centroid] + [corner for corner in

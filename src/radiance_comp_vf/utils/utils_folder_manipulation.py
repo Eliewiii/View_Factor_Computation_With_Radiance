@@ -32,6 +32,16 @@ def check_file_exist(file_path: str):
         raise FileNotFoundError(f"File not found: {file_path}")
 
 
+def check_folder_exist(*paths):
+    """
+    Check if a file exists and raise an error if not.
+    :param file_path: str, the path of the file.
+    """
+    for path_folder in paths:
+        if not os.path.exists(path_folder):
+            raise FileNotFoundError(f"Folder not found: {path_folder}")
+
+
 def check_parent_folder_exist(file_path: str):
     """
     Check if the parent folder of a file path exists and raise an error if not.
