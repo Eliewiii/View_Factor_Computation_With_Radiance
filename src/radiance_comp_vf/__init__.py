@@ -5,4 +5,3 @@ from .radiative_surface.radiative_surface_manager_class import RadiativeSurfaceM
 
 from .utils import *
 
-import main_vf_computation

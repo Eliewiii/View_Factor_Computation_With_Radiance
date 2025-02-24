@@ -310,11 +310,11 @@ class RadiativeSurface:
         if isinstance(reflectance, float) and 0 <= reflectance <= 1:
             self._reflectance = reflectance
         else:
-            raise ValueError(f"Emissivity for surface {self._identifier} must be a float between 0 and 1.")
+            raise ValueError(f"Reflectance for surface {self._identifier} must be a float between 0 and 1.")
         if isinstance(transmittance, float) and 0 <= transmittance <= 1:
             self._transmittance = transmittance
         else:
-            raise ValueError(f"Emissivity for surface {self._identifier} must be a float between 0 and 1.")
+            raise ValueError(f"Transmittance for surface {self._identifier} must be a float between 0 and 1.")
 
         # Check value integrity.
         if sum([self._emissivity, self._reflectance, self._transmittance]) == 1.:
