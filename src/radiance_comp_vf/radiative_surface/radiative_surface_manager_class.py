@@ -8,6 +8,7 @@ import json
 import warnings
 import subprocess
 import sys
+import time
 
 import numpy as np
 
@@ -179,19 +180,21 @@ class RadiativeSurfaceManager:
         # Simulation parameters
         self._sim_parameter_dict = {"num_rays": None, "num_receiver_per_file": None}
 
-    def to_pkl(self, path_folder: str, file_name: str = "radiative_surface_manager.pkl"):
+    def to_pkl(self, path_folder: str, file_name: str = "radiative_surface_manager.pkl",
+               get_path_only: bool = False) -> str:
         """
         Save the RadiativeSurfaceManager object to a pickle file.
         :param path_folder: str, the folder path where the pickle file will be saved.
         :param file_name: str, the name of the pickle file.
         """
-
         path_pkl_file = os.path.join(path_folder, file_name)
-        with open(path_pkl_file, 'wb') as f:
-            pickle.dump(self, f)
+        if not get_path_only:
+            with open(path_pkl_file, 'wb') as f:
+                pickle.dump(self, f)
+        return path_pkl_file
 
-    @classmethod
-    def from_pkl(cls, path_pkl_file) -> "RadiativeSurfaceManager":
+    @staticmethod
+    def from_pkl(path_pkl_file) -> "RadiativeSurfaceManager":
         """
         Load a RadiativeSurfaceManager object from a pickle file.
         :param path_pkl_file: str, the path of the pickle file.
@@ -200,6 +203,21 @@ class RadiativeSurfaceManager:
         with open(path_pkl_file, 'rb') as f:
             radiative_surface_manager = pickle.load(f)
         return radiative_surface_manager
+
+    def _set_num_rays(self, num_rays):
+        """
+
+        :param num_rays:
+        :return:
+        """
+        if num_rays is None and self._sim_parameter_dict["num_rays"] is None:
+            self._sim_parameter_dict["num_rays"] = self.DEFAULT_NUMBER_OF_RAYS
+        elif self._sim_parameter_dict["num_rays"] is None:
+            self._sim_parameter_dict["num_rays"] = self._check_num_ray(num_ray_radiance=num_rays)
+        elif self._sim_parameter_dict["num_rays"] != num_rays:
+            raise ValueError(
+                f"The number of ray has already been set to {self._sim_parameter_dict['num_rays']},"
+                f" it is inconsistent with the new value inputted")
 
     # ----------------------------------------------------------
     # Properties
@@ -216,6 +234,10 @@ class RadiativeSurfaceManager:
     @property
     def num_surface(self):
         return self._num_surface
+
+    @property
+    def num_rays(self):
+        return self._sim_parameter_dict["num_rays"]
 
     # -----------------------------------------------------------------
     # Add surfaces
@@ -304,7 +326,7 @@ class RadiativeSurfaceManager:
     # -----------------------------------------------------------------
 
     def run_view_factor_computation_in_subprocess(self, path_simulation_folder: str, path_result_folder: str,
-                                                  num_receiver_per_file: int = 40, ):
+                                                  **kwargs):
         """
 
         :return:
@@ -323,23 +345,17 @@ class RadiativeSurfaceManager:
             return
 
         # Make the config.json file to pass down the arguments to the subprocess
-        path_radiative_surface_manager_pkl = ""
+        path_radiative_surface_manager_pkl = self.to_pkl(path_folder=path_simulation_folder,
+                                                         get_path_only=True)
 
-        self.make_main_config_file(path_simulation_folder, path_radiative_surface_manager_pkl,
-                                   path_result_folder)
-
-        # Check the config json with a function from the radiance_comp_vf package.
-
-        # Save the configuration to a JSON file
-        name_config_file = 'config.json'
-        path_config_file = os.path.join("", name_config_file)
-        with open(path_config_file, 'w') as f:
-            json.dump(config, f)
-
+        path_config_file = self._make_main_config_file(path_simulation_folder=path_simulation_folder,
+                                                       path_radiative_surface_manager_pkl=path_radiative_surface_manager_pkl,
+                                                       path_result_folder=path_result_folder, **kwargs)
         # Pickle the radiative surface manager
+        self.to_pkl(path_folder=path_simulation_folder)
 
         # Step 4: Run the parallel computation via subprocess
-        run_parallel_task_via_subprocess(path_config_file)
+        run_parallel_task_via_subprocess(path_config_file=path_config_file)
 
     def run_view_factor_computation(self, path_root_simulation_folder: str, num_receiver_per_file: int = 1,
                                     num_workers=1, worker_batch_size=1,
@@ -379,6 +395,7 @@ class RadiativeSurfaceManager:
                                  num_workers: int = 0,
                                  mvfc_check: bool = True,
                                  mvfc: float = None,
+                                 num_rays=None,
                                  min_ray_threshold: int = 1,
                                  ray_traced_check: bool = True,
                                  ray_tracing_among_all_corners: bool = False
@@ -397,9 +414,12 @@ class RadiativeSurfaceManager:
             between all the corners of the surfaces, and not only the center of face_1 to the center and corners of face_2.
 
         """
+        # Set the number of rays to use in Radiance if provided (to ensure consistency)
+        self._set_num_rays(num_rays)
         # todo: set the chunk size to nb_surface//num_workers, and set num worker to nb thread
         num_workers = self._check_num_worker_valid(num_workers, worker_type="cpu")
-        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check, min_vf_criterion=mvfc, min_ray_threshold=min_ray_threshold)
+        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check, min_vf_criterion=mvfc,
+                                            min_ray_threshold=min_ray_threshold)
         """
         This function necessarily uses multiprocessing, as the visibility check is a CPU-bound task.
         And as the context_polydata_mesh, required for the visibility check, need to be computed at each new process 
@@ -407,7 +427,7 @@ class RadiativeSurfaceManager:
         is then set accordingly with ceil to have for sure num_workers processes, to avoid generating more pyvista mesh 
         than needed.
         """
-        chunk_size = max(1, ceil(len(self._radiative_surface_dict) / num_workers))
+        chunk_size = max(1, ceil(len(self._radiative_surface_dict) / num_workers/2))
         visibility_result_dict_list = parallel_computation_in_batches_with_return(
             func=self._check_visibility_of_surface_chunk,
             input_tables=split_into_batches(list(self._radiative_surface_dict.keys()), chunk_size),
@@ -422,17 +442,24 @@ class RadiativeSurfaceManager:
         # Set the visibility result to the RadiativeSurface objects
         for visibility_result_dict in visibility_result_dict_list:
             """ Each dictionary contains one surface id that point to a list of surface id that are visible"""
-            radiative_surface_id = list(visibility_result_dict.keys())[0]
-            self._radiative_surface_dict[radiative_surface_id].add_viewed_surfaces(
-                viewed_surface_id_list=visibility_result_dict[radiative_surface_id], overwrite=True)
+            for radiative_surface_id in list(visibility_result_dict.keys()):
+                self._radiative_surface_dict[radiative_surface_id].add_viewed_surfaces(
+                    viewed_surface_id_list=visibility_result_dict[radiative_surface_id], overwrite=True)
 
-    def _check_surface_visibility_sequential(self, mvfc):
+    def _check_surface_visibility_sequential(self, mvfc_check: bool = True,
+                                 mvfc: float = None,
+                                 num_rays=None,
+                                 min_ray_threshold: int = 1,
+                                 ray_traced_check: bool = True,
+                                 ray_tracing_among_all_corners: bool = False
+                                 ):
         """
         Check the visibility between all the RadiativeSurface objects in the manager.
         SEQUENTIAL VERSION of the function. for testing purposes.
         :param mvfc: float, the minimum visibility factor criterion to consider the surface as visible.
         """
-        mvfc = self._check_min_vf_criterion(mvfc)
+        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check, min_vf_criterion=mvfc,
+                                            min_ray_threshold=min_ray_threshold)
         mesh = self._make_pyvista_polydata_mesh_out_of_all_surfaces()
         visibility_result_dict = {}
         for radiative_surface_obj in self._radiative_surface_dict.values():
@@ -441,6 +468,12 @@ class RadiativeSurfaceManager:
                 radiative_surface_list=self._radiative_surface_dict.values(),
                 context_pyvista_polydata_mesh=mesh,
                 mvfc=mvfc)
+
+        # Set the visibility result to the RadiativeSurface objects
+        for radiative_surface_id in list(visibility_result_dict.keys()):
+            """ Each dictionary contains one surface id that point to a list of surface id that are visible"""
+            self._radiative_surface_dict[radiative_surface_id].add_viewed_surfaces(
+                viewed_surface_id_list=visibility_result_dict[radiative_surface_id], overwrite=True)
 
     @staticmethod
     def _check_visibility_of_surface_chunk(*radiative_surface_id_list: List[str],
@@ -457,11 +490,14 @@ class RadiativeSurfaceManager:
             between all the corners of the surfaces, and not only the center of face_1 to the center and corners of face_2.
         :return:
         """
+        time_1= time.time()
         if ray_traced_check:
             pyvista_polydata_mesh = radiative_surface_manager_obj._make_pyvista_polydata_mesh_out_of_all_surfaces()
         else:
             pyvista_polydata_mesh = None
+        time_1 = time.time() - time_1
         visibility_result_dict = {}
+        time_2 = time.time()
         for radiative_surface_id in radiative_surface_id_list:
             visibility_result_dict[
                 radiative_surface_id] = radiative_surface_manager_obj.get_radiative_surface(
@@ -470,6 +506,8 @@ class RadiativeSurfaceManager:
                 context_pyvista_polydata_mesh=pyvista_polydata_mesh, mvfc=mvfc,
                 ray_traced_check=ray_traced_check,
                 ray_tracing_among_all_corners=ray_tracing_among_all_corners)
+        time_2=time_2- time.time()
+        # print (f"Time 1: {time_1}, Time 2: {time_2}")
         return visibility_result_dict
 
     def _make_pyvista_polydata_mesh_out_of_all_surfaces(self):
@@ -699,44 +737,44 @@ class RadiativeSurfaceManager:
     # View factor computation
     #########################
 
-    def _run_radiance_vf_computation_sequential(self, nb_rays: int = 10000):
+    def _run_radiance_vf_computation_sequential(self, num_rays: int = 10000):
         """
         Compute the view factor between multiple emitter and receiver with Radiance in batches.
-        :param nb_rays: int, the number of rays to use.
+        :param num_rays: int, the number of rays to use.
         """
-        self._sim_parameter_dict["num_rays"] = nb_rays
+        self._sim_parameter_dict["num_rays"] = num_rays
         for input_arg in self._radiance_argument_list:
-            compute_vf_between_emitter_and_receivers_radiance(*input_arg, nb_rays=nb_rays)
+            compute_vf_between_emitter_and_receivers_radiance(*input_arg, num_rays=num_rays)
 
-    def _run_radiance_vf_computation_in_parallel(self, nb_rays: int = 10000, num_workers=1,
+    def _run_radiance_vf_computation_in_parallel(self, num_rays: int = 10000, num_workers=1,
                                                  worker_batch_size=1,
                                                  executor_type=ThreadPoolExecutor):
         """
         Compute the view factor between multiple emitter and receiver with Radiance in batches.
-        :param nb_rays: int, the number of rays to use.
+        :param num_rays: int, the number of rays to use.
         :param num_workers: int, the number of workers to use for the parallelization.
         :param worker_batch_size: int, the size of the batch of commands to run in parallel.
         :param executor_type: the type of executor to use for the parallelization.
         """
-        self._sim_parameter_dict["num_rays"] = nb_rays
+        self._sim_parameter_dict["num_rays"] = num_rays
         parallel_computation_in_batches_with_return(
             func=compute_vf_between_emitter_and_receivers_radiance,
             input_tables=self._radiance_argument_list,
             executor_type=executor_type,
             worker_batch_size=worker_batch_size,
             num_workers=num_workers,
-            nb_rays=nb_rays)
+            num_rays=num_rays)
 
-    def _run_radiance_vf_computation_without_output_files_sequential(self, nb_rays: int = 10000):
+    def _run_radiance_vf_computation_without_output_files_sequential(self, num_rays: int = 10000):
         """
         Compute the view factor between multiple emitter and receiver with Radiance sequentially, FOR TESTING PURPOSES.
-        :param nb_rays: int, the number of rays to use.
+        :param num_rays: int, the number of rays to use.
         """
-        self._sim_parameter_dict["num_rays"] = nb_rays
+        self._set_num_rays(num_rays)
         command_returned_vf_list = []  # each returned has the following format [id_emitter, batch_number, [vf_list]]
         for input_arg in self._radiance_argument_list:
             command_returned_vf_list.append(
-                compute_vf_between_emitter_and_receivers_radiance_no_output(*input_arg, nb_rays=nb_rays))
+                compute_vf_between_emitter_and_receivers_radiance_no_output(*input_arg, num_rays=num_rays))
         # Postprocessing to first group the results by emitter and then by batch, then merge the VF list
         sorted_command_returned_vf_list = sort_table_by_column(command_returned_vf_list,
                                                                list_of_column_index_to_sort=[0, 1])
@@ -745,30 +783,27 @@ class RadiativeSurfaceManager:
         for emitter_id, vf_list in emitter_vf_dict.items():
             self._radiative_surface_dict[emitter_id].add_view_factors(vf_list)
 
-    def _run_radiance_vf_computation_in_parallel_without_output_files(self, nb_rays: int = 10000,
+    def _run_radiance_vf_computation_in_parallel_without_output_files(self, num_rays: int = None,
                                                                       num_workers=1,
                                                                       worker_batch_size=1,
                                                                       executor_type=ProcessPoolExecutor):
         """
         todo: Test function
         Compute the view factor between multiple emitter and receiver with Radiance in batches.
-        :param nb_rays: int, the number of rays to use.
+        :param num_rays: int, the number of rays to use.
         :param num_workers: int, the number of workers to use for the parallelization.
         :param worker_batch_size: int, the size of the batch of commands to run in parallel.
         :param executor_type: the type of executor to use for the parallelization.
         """
-        # todo: check num ray and workers
-        self._sim_parameter_dict["num_rays"] = nb_rays
-
-        # todo: run this with subprocesses not to copy multiple times the RadiativeSurfaceManager object.
-
+        # Set the number of rays to use in Radiance if provided (to ensure consistency)
+        self._set_num_rays(num_rays)
         command_returned_vf_list = parallel_computation_in_batches_with_return(
             func=compute_vf_between_emitter_and_receivers_radiance_no_output,
             input_tables=self._radiance_argument_list,
             executor_type=executor_type,
             worker_batch_size=worker_batch_size,
             num_workers=num_workers,
-            nb_rays=nb_rays)
+            num_rays=self.num_rays)
 
         # Postprocessing to first group the results by emitter and then by batch, then merge the VF list
         sorted_command_returned_vf_list = sort_table_by_column(command_returned_vf_list,
@@ -954,7 +989,7 @@ class RadiativeSurfaceManager:
                              f"(maximum processes that your computer can handle before degrading performances.")
         return num_worker
 
-    def _check_min_vf_criterion(self, mvfc_check, min_vf_criterion: float, num_ray_radiance: int = None,
+    def _check_min_vf_criterion(self, mvfc_check, min_vf_criterion: float,
                                 min_ray_threshold: int = None) -> float:
         """
         Check if the minimum view factor criterion is valid.
@@ -966,12 +1001,11 @@ class RadiativeSurfaceManager:
         if mvfc_check is False:
             return None
         elif min_vf_criterion is None:
-            if num_ray_radiance is None:
+            if self.num_rays is None:
                 return None
             else:
                 # Check if the number of rays is valid, though it should be done before, it is a double check
-                self._check_num_ray(num_ray_radiance)
-                return min_ray_threshold / num_ray_radiance / self.MVFC_FACTOR  # Return a float in Python
+                return min_ray_threshold / self.num_rays / self.MVFC_FACTOR  # Return a float in Python
         elif not isinstance(min_vf_criterion, float):
             raise ValueError("The minimum view factor criterion must be a float or None")
         elif min_vf_criterion < 0 or min_vf_criterion > 1:
@@ -989,7 +1023,7 @@ class RadiativeSurfaceManager:
         """
         if num_ray_radiance is None:
             return self.DEFAULT_NUMBER_OF_RAYS
-        elif isinstance(num_ray_radiance, int):
+        elif not isinstance(num_ray_radiance, int):
             raise ValueError(f"The number of rays for the Radiance computation must be an integer."
                              f"value given: {num_ray_radiance}")
         elif num_ray_radiance < 1000:
@@ -1030,7 +1064,7 @@ class RadiativeSurfaceManager:
     def _make_main_config_file(self, path_simulation_folder: str, path_radiative_surface_manager_pkl: str,
                                path_result_folder: str, num_worker_cpu_bound: int = 0,
                                num_worker_io_bound: int = 0,
-                               num_ray: int = 100000,
+                               num_rays: int = 100000,
                                mvfc_check: bool = True,
                                mvfc: float = None,
                                ray_traced_check: bool = True,
@@ -1046,7 +1080,7 @@ class RadiativeSurfaceManager:
         :param path_result_folder: str, the folder path where the Radiance output files will be saved.
         :param num_worker_cpu_bound: int, the number of workers to use for the CPU bound tasks.
         :param num_worker_io_bound: int, the number of workers to use for the IO bound tasks.
-        :param num_ray: int, the number of rays to use for the Radiance computation.
+        :param num_rays: int, the number of rays to use for the Radiance computation.
         :param mvfc_check: bool, if True, check the minimum view factor criterion.
         :param mvfc: float, the minimum view factor criterion.
         :param ray_traced_check: bool, if True, use the ray tracing method to check the visibility.
@@ -1064,10 +1098,9 @@ class RadiativeSurfaceManager:
         num_worker_cpu_bound = self._check_num_worker_valid(num_worker_cpu_bound, worker_type="cpu")
         num_worker_io_bound = self._check_num_worker_valid(num_worker_io_bound, worker_type="io")
         # Check number of ray for the Radiance computation
-        num_ray = self._check_num_ray(num_ray)
+        num_rays = self._check_num_ray(num_rays)
         # Check the minimum view factor criterion
-        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check, min_vf_criterion=mvfc,
-                                            num_ray_radiance=num_ray)
+        mvfc = self._check_min_vf_criterion(mvfc_check=mvfc_check, min_vf_criterion=mvfc)
         # Check number receiver per file
         num_receiver_per_file = self._check_number_of_receiver_per_rad_file(num_receiver_per_file)
         # Create the dictionary
@@ -1077,7 +1110,7 @@ class RadiativeSurfaceManager:
             "path_result_folder": path_result_folder,
             "num_worker_cpu_bound": num_worker_cpu_bound,
             "num_worker_io_bound": num_worker_io_bound,
-            "num_ray": num_ray,
+            "num_rays": num_rays,
             "mvfc_check": mvfc_check,
             "mvfc": mvfc,
             "ray_traced_check": ray_traced_check,
@@ -1088,5 +1121,8 @@ class RadiativeSurfaceManager:
             "one_octree_for_all": one_octree_for_all
         }
         # Write json file
-        with open(os.path.join(path_simulation_folder, "vf_config.json"), 'wb') as f:
-            pickle.dump(config_dict, f)
+        path_config_file = os.path.join(path_simulation_folder, "vf_config.json")
+        with open(path_config_file, 'w') as f:
+            json.dump(config_dict, f)
+
+        return path_config_file

@@ -33,23 +33,23 @@ def make_inputs(radiative_surface_manager,path_root_simulation_folder,
     )
 
 # Run the simulation
-def run_sim_with_outputs(radiative_surface_manager,nb_rays:int,
+def run_sim_with_outputs(radiative_surface_manager,num_rays:int,
             num_workers:int,
             worker_batch_size:int,
             executor_type):
     radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
         )
 
-def run_sim_without_outputs(radiative_surface_manager,nb_rays:int,
+def run_sim_without_outputs(radiative_surface_manager,num_rays:int,
             num_workers:int,
             worker_batch_size:int,
             executor_type):
     radiative_surface_manager._run_radiance_vf_computation_in_parallel_without_output_files(
-        nb_rays=nb_rays,
+        num_rays=num_rays,
         num_workers=num_workers,
         worker_batch_size=worker_batch_size,
         executor_type=ProcessPoolExecutor
@@ -70,7 +70,7 @@ def main():
     worker_batch_size = 50
 
     # VF parameters
-    nb_rays = 500000
+    num_rays = 500000
 
 
     # Make input files
@@ -84,7 +84,7 @@ def main():
     # Simulation with outputs and Threading
     start = time()
     run_sim_with_outputs(radiative_surface_manager,
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ProcessPoolExecutor
@@ -95,7 +95,7 @@ def main():
     # Simulation with outputs and Threading and double the number of workers
     start = time()
     run_sim_with_outputs(radiative_surface_manager,
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers*2,
             worker_batch_size=worker_batch_size,
             executor_type=ProcessPoolExecutor
@@ -106,7 +106,7 @@ def main():
     # Simulation with outputs and multiprocessing
     start = time()
     run_sim_with_outputs(radiative_surface_manager,
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ProcessPoolExecutor
@@ -117,7 +117,7 @@ def main():
     # Simulation without outputs and Threading
     start = time()
     run_sim_without_outputs(radiative_surface_manager,
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ProcessPoolExecutor
@@ -128,7 +128,7 @@ def main():
     # Simulation without outputs and Threading and double the number of workers
     start = time()
     run_sim_without_outputs(radiative_surface_manager,
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers*2,
             worker_batch_size=worker_batch_size,
             executor_type=ProcessPoolExecutor
@@ -139,7 +139,7 @@ def main():
     # Simulation without outputs and Threading and double the number of workers
     start = time()
     run_sim_without_outputs(radiative_surface_manager,
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers*3,
             worker_batch_size=worker_batch_size,
             executor_type=ProcessPoolExecutor
@@ -150,7 +150,7 @@ def main():
     # Simulation without outputs and multiprocessing
     start = time()
     run_sim_without_outputs(radiative_surface_manager,
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ProcessPoolExecutor

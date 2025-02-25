@@ -216,9 +216,9 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
             path_root_simulation_folder=radiance_test_file_dir, return_file_path_only=True)
         assert len(os.listdir(path_receiver_folder)) == len(radiative_surface_manager._radiance_argument_list)
         # Compute the view factors
-        nb_rays = 10000
+        num_rays = 10000
         radiative_surface_manager._run_radiance_vf_computation_sequential(
-            nb_rays=nb_rays
+            num_rays=num_rays
         )
         # Check the output files
         assert len(os.listdir(path_output_folder)) == len(radiative_surface_manager._radiance_argument_list)
@@ -244,11 +244,11 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
             path_root_simulation_folder=radiance_test_file_dir, return_file_path_only=True)
         assert len(os.listdir(path_receiver_folder)) == len(radiative_surface_manager._radiance_argument_list)
         # Compute the view factors
-        nb_rays = 10000
+        num_rays = 10000
         num_workers = 8
         worker_batch_size = 2
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -278,19 +278,19 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
             path_root_simulation_folder=radiance_test_file_dir, return_file_path_only=True)
         assert len(os.listdir(path_receiver_folder)) == len(radiative_surface_manager._radiance_argument_list)
         # Compute the view factors
-        nb_rays = 10000
+        num_rays = 10000
         num_workers = 2
         worker_batch_size = 1
         # file generated
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
         )
         # No files
         result = radiative_surface_manager._run_radiance_vf_computation_in_parallel_without_output_files(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ProcessPoolExecutor
@@ -318,7 +318,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
             [6., 4., 10.]
         ]
         num_receiver_per_file = 1
-        nb_rays = 100000
+        num_rays = 100000
         num_workers = 1
         worker_batch_size = 1
         # ---------------------------------------------------------
@@ -341,7 +341,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         )
         # Compute the view factors
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -372,7 +372,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         )
         # Compute the view factors
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -404,7 +404,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         )
         # Compute the view factors
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -441,7 +441,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
             [10., 0., 10.]
         ]
 
-        nb_rays = 1000000
+        num_rays = 1000000
 
         # ---------------------------------------------------------
         # Computation Surface 1
@@ -465,7 +465,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         num_workers = 1
         worker_batch_size = 1
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -496,7 +496,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         num_workers = 1
         worker_batch_size = 1
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -531,7 +531,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputation:
         num_workers = 1
         worker_batch_size = 1
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor

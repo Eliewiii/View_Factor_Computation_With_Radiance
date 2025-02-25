@@ -46,12 +46,12 @@ class TestRadiativeSurfaceManagerMatrixGeneration:
         path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.make_input_files_for_radiance_vf_computation(
             radiative_surface_manager, num_receiver_per_file=5)
         # Compute the view factors
-        nb_rays = 1000000
+        num_rays = 1000000
         num_workers = 2
         worker_batch_size = 1
         # No files
         radiative_surface_manager._run_radiance_vf_computation_in_parallel_without_output_files(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ProcessPoolExecutor

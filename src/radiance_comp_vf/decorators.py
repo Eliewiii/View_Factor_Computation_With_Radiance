@@ -20,19 +20,16 @@ def run_for_each_arg(func: Callable):
     return wrapper
 
 
-
-
-
-def check_for_list_of_inputs(func: Callable):
-    @wraps(func)
-    def wrapper(*arg_lists, **kwargs):
-        # Generate all possible combinations of the arguments
-        for combination in product(*arg_lists):
-            if func(*combination, **kwargs):
-                return True
-        return False
-
-    return wrapper
+# def check_for_list_of_inputs(func: Callable):
+#     @wraps(func)
+#     def wrapper(*arg_lists, **kwargs):
+#         # Generate all possible combinations of the arguments
+#         for combination in product(*arg_lists):
+#             if func(*combination, **kwargs):
+#                 return True
+#         return False
+#
+#     return wrapper
 
 
 def check_for_list_of_inputs(check_for_true=True):
@@ -46,4 +43,5 @@ def check_for_list_of_inputs(check_for_true=True):
             return not check_for_true
 
         return wrapper
+
     return decorator

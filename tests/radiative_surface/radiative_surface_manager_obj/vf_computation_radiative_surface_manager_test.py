@@ -50,9 +50,9 @@ class TestRadiativeSurfaceManagerRadianceVFComputationNormalCases:
         path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.make_input_files_for_radiance_vf_computation(
             radiative_surface_manager, num_receiver_per_file=5)
         # Compute the view factors
-        nb_rays = 10000
+        num_rays = 10000
         radiative_surface_manager._run_radiance_vf_computation_sequential(
-            nb_rays=nb_rays
+            num_rays=num_rays
         )
         # Check the output files
         assert len(os.listdir(path_output_folder)) == len(radiative_surface_manager._radiance_argument_list)
@@ -68,11 +68,11 @@ class TestRadiativeSurfaceManagerRadianceVFComputationNormalCases:
         path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.make_input_files_for_radiance_vf_computation(
             radiative_surface_manager, num_receiver_per_file=5)
         # Compute the view factors
-        nb_rays = 10000
+        num_rays = 10000
         num_workers = 8
         worker_batch_size = 2
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -94,12 +94,12 @@ class TestRadiativeSurfaceManagerRadianceVFComputationNormalCases:
         path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.make_input_files_for_radiance_vf_computation(
             radiative_surface_manager, num_receiver_per_file=5)
         # Compute the view factors
-        nb_rays = 10000
+        num_rays = 10000
         num_workers = 2
         worker_batch_size = 1
         # VF computation without output files
         radiative_surface_manager._run_radiance_vf_computation_without_output_files_sequential(
-            nb_rays=nb_rays
+            num_rays=num_rays
         )
         # Check that the number of view factor for each surface is correct
         for radiative_surface in radiative_surface_manager._radiative_surface_dict.values():
@@ -119,12 +119,12 @@ class TestRadiativeSurfaceManagerRadianceVFComputationNormalCases:
         path_emitter_folder, path_octree_folder, path_receiver_folder, path_output_folder = self.make_input_files_for_radiance_vf_computation(
             radiative_surface_manager, num_receiver_per_file=5)
         # Compute the view factors
-        nb_rays = 10000
+        num_rays = 10000
         num_workers = 2
         worker_batch_size = 1
         # No files
         radiative_surface_manager._run_radiance_vf_computation_in_parallel_without_output_files(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ProcessPoolExecutor
@@ -154,7 +154,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputationSurfacesWithHoles:
             [6., 4., 10.]
         ]
         num_receiver_per_file = 1
-        nb_rays = 100000
+        num_rays = 100000
         num_workers = 1
         worker_batch_size = 1
         # ---------------------------------------------------------
@@ -177,7 +177,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputationSurfacesWithHoles:
         )
         # Compute the view factors
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -208,7 +208,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputationSurfacesWithHoles:
         )
         # Compute the view factors
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -240,7 +240,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputationSurfacesWithHoles:
         )
         # Compute the view factors
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -283,7 +283,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputationObstructionInOctree:
             [10., 0., 10.]
         ]
 
-        nb_rays = 1000000
+        num_rays = 1000000
 
         # ---------------------------------------------------------
         # Computation Surface 1
@@ -307,7 +307,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputationObstructionInOctree:
         num_workers = 1
         worker_batch_size = 1
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -338,7 +338,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputationObstructionInOctree:
         num_workers = 1
         worker_batch_size = 1
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -373,7 +373,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputationObstructionInOctree:
         num_workers = 1
         worker_batch_size = 1
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor
@@ -416,7 +416,7 @@ class TestRadiativeSurfaceManagerRadianceVFComputationObstructionInOctree:
         num_workers = 1
         worker_batch_size = 1
         radiative_surface_manager._run_radiance_vf_computation_in_parallel(
-            nb_rays=nb_rays,
+            num_rays=num_rays,
             num_workers=num_workers,
             worker_batch_size=worker_batch_size,
             executor_type=ThreadPoolExecutor

@@ -38,3 +38,19 @@ def test_visibility():
     print(f"Multithreading took: {time() - start:.2f} seconds")
 
 # todo: add tests for the other functions, the different check options as well as extreme cases
+
+
+def test_visibility_from_pkl():
+    """
+
+    :return:
+    """
+    rsm = RadiativeSurfaceManager.from_pkl(r"C:\Users\elie-medioni\AppData\Local\BUA\radiative_surface_manager.pkl")
+    # rsm.check_surface_visibility(num_workers=1)
+    rsm._check_surface_visibility_sequential()
+    rsm.to_pkl(r"C:\Users\elie-medioni\AppData\Local\BUA","radiative_surface_manager_2.pkl")
+    print("done")
+
+def test_read_pkl():
+    rsm = RadiativeSurfaceManager.from_pkl(r"C:\Users\elie-medioni\AppData\Local\BUA\radiative_surface_manager_2.pkl")
+    print("done")

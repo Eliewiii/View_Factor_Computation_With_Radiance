@@ -21,7 +21,7 @@ def main(path_simulation_manager_pkl, path_simulation_folder: str):
     # Input batch within receiver rad_files
     num_receiver_per_file = 100
     # Input vf computation
-    nb_rays = 100000
+    num_rays = 100000
     command_batch_size = 10
     num_workers = 10
     worker_batch_size = 11
@@ -40,7 +40,7 @@ def main(path_simulation_manager_pkl, path_simulation_folder: str):
     print(f"start vf computation.")
     # Run the VF computation in parallel
     # dur = _run_radiance_vf_computation_sequential(radiative_surface_manager_obj, type="single",
-    #                          nb_rays=nb_rays,
+    #                          num_rays=num_rays,
     #                          command_batch_size=command_batch_size,
     #                          num_workers=num_workers,
     #                          worker_batch_size=worker_batch_size,
@@ -48,7 +48,7 @@ def main(path_simulation_manager_pkl, path_simulation_folder: str):
     # print(f"Duration single thread: {dur}s for {num_ref_rectangles * num_random_rectangle} vf to compute.")
 
     dur = _run_radiance_vf_computation_sequential(radiative_surface_manager_obj, type="parallel",
-                             nb_rays=nb_rays,
+                             num_rays=num_rays,
                              command_batch_size=command_batch_size,
                              num_workers=num_workers,
                              worker_batch_size=worker_batch_size,
@@ -56,7 +56,7 @@ def main(path_simulation_manager_pkl, path_simulation_folder: str):
     print(f"Duration parallel Thread: {dur}s for {n_vf} vf to compute.")
 
     dur = _run_radiance_vf_computation_sequential(radiative_surface_manager_obj, type="parallel",
-                             nb_rays=nb_rays,
+                             num_rays=num_rays,
                              command_batch_size=command_batch_size,
                              num_workers=num_workers,
                              worker_batch_size=worker_batch_size,
@@ -64,7 +64,7 @@ def main(path_simulation_manager_pkl, path_simulation_folder: str):
     print(f"Duration parallel process: {dur}s for {n_vf} vf to compute.")
 
     # dur = _run_radiance_vf_computation_sequential(radiative_surface_manager_obj, type="parallel",
-    #                          nb_rays=nb_rays,
+    #                          num_rays=num_rays,
     #                          command_batch_size=command_batch_size,
     #                          num_workers=num_workers,
     #                          worker_batch_size=worker_batch_size,
@@ -72,7 +72,7 @@ def main(path_simulation_manager_pkl, path_simulation_folder: str):
     # print(f"Duration parallel: {dur}s for {n_vf} vf to compute.")
 
     # dur = _run_radiance_vf_computation_sequential(radiative_surface_manager_obj, type="parallel_grouped_commands",
-    #                          nb_rays=nb_rays,
+    #                          num_rays=num_rays,
     #                          command_batch_size=command_batch_size,
     #                          num_workers=num_workers,
     #                          worker_batch_size=worker_batch_size,

@@ -13,19 +13,19 @@ from .utils_folder_manipulation import \
 
 def run_radiant_vf_computation_in_batches(*rad_argument_batch_list: List[List],
                                           path_octree_context_list: List[str] = None,
-                                          nb_rays: int = 10000):
+                                          num_rays: int = 10000):
     """
     Compute the view factor between multiple emitter and receiver with Radiance in batches.
     :param rad_argument_batch_list: [[str, str, str]], the list of arguments for the Radiance computation.
     :param path_octree_context_list: [str], the list of paths of the octree files.
-    :param nb_rays: int, the number of rays to use.
+    :param num_rays: int, the number of rays to use.
     """
     # Generate the commands
     command_list = []
     for rad_argument_batch in rad_argument_batch_list:
         command_list.append(write_radiance_command_for_vf_computation(*rad_argument_batch,
                                                                       # path_octree_context=path_octree_context,
-                                                                      nb_rays=nb_rays))
+                                                                      num_rays=num_rays))
     # Run the commands in batches
     run_command_in_batches(command_list)
 
@@ -42,14 +42,14 @@ def run_command_in_batches(command_list: List[str]):
 
 def write_radiance_command_for_vf_computation(path_emitter_rad_file: str, path_receiver_rad_file: str,
                                               path_output_file: str, path_octree_context: str = None,
-                                              nb_rays: int = 10000):
+                                              num_rays: int = 10000):
     """
     Compute the view factor between 2 rectangles with Radiance.
     :param path_emitter_rad_file: str, the path of the emitter Radiance file.
     :param path_receiver_rad_file: str, the path of the receiver Radiance file.
     :param path_output_file: str, the path of the output file.
     :param path_octree_context: str, the path of the octree file.
-    :param nb_rays: int, the number of rays to use.
+    :param num_rays: int, the number of rays to use.
     """
     # Check if the paths of emitter and receiver files exist
     check_file_exist(path_emitter_rad_file)
@@ -60,7 +60,7 @@ def write_radiance_command_for_vf_computation(path_emitter_rad_file: str, path_r
     if path_octree_context and not os.path.exists(path_octree_context):
         raise FileNotFoundError(f"File not found: {path_octree_context}")
     # Compute the view factor
-    command = f'rfluxmtx -h- -ab 0 -c {nb_rays} ' + f'"!xform -I "{path_emitter_rad_file}"" ' + (
+    command = f'rfluxmtx -h- -ab 0 -c {num_rays} ' + f'"!xform -I "{path_emitter_rad_file}"" ' + (
         f'"{path_receiver_rad_file}"')
     if path_octree_context:
         command += f' -i "{path_octree_context}"'
@@ -71,14 +71,14 @@ def write_radiance_command_for_vf_computation(path_emitter_rad_file: str, path_r
 
 def write_radiance_command_for_vf_computation_without_output(path_emitter_rad_file: str, path_receiver_rad_file: str,
                                               path_octree_context: str = None,
-                                              nb_rays: int = 10000):
+                                              num_rays: int = 10000):
     """
     todo: test function
     Compute the view factor between 2 rectangles with Radiance.
     :param path_emitter_rad_file: str, the path of the emitter Radiance file.
     :param path_receiver_rad_file: str, the path of the receiver Radiance file.
     :param path_octree_context: str, the path of the octree file.
-    :param nb_rays: int, the number of rays to use.
+    :param num_rays: int, the number of rays to use.
     """
     # Check if the paths of emitter and receiver files exist
     check_file_exist(path_emitter_rad_file)
@@ -87,7 +87,7 @@ def write_radiance_command_for_vf_computation_without_output(path_emitter_rad_fi
     if path_octree_context and not os.path.exists(path_octree_context):
         raise FileNotFoundError(f"File not found: {path_octree_context}")
     # Compute the view factor
-    command = f'rfluxmtx -h- -ab 0 -c {nb_rays} ' + f'"!xform -I "{path_emitter_rad_file}"" ' + (
+    command = f'rfluxmtx -h- -ab 0 -c {num_rays} ' + f'"!xform -I "{path_emitter_rad_file}"" ' + (
         f'"{path_receiver_rad_file}"')
     if path_octree_context:
         command += f' -i "{path_octree_context}"'
@@ -98,18 +98,18 @@ def compute_vf_between_emitter_and_receivers_radiance(path_emitter_rad_file: str
                                                       path_receiver_rad_file: str,
                                                       path_output_file: str,
                                                       path_octree_context: str = None,
-                                                      nb_rays: int = 10000):
+                                                      num_rays: int = 10000):
     """
     Compute the view factor between 2 rectangles with Radiance.
     :param path_emitter_rad_file: str, the path of the emitter Radiance file.
     :param path_receiver_rad_file: str, the path of the receiver Radiance file.
     :param path_output_file: str, the path of the output file.
     :param path_octree_context: str, the path of the octree file.
-    :param nb_rays: int, the number of rays to use.
+    :param num_rays: int, the number of rays to use.
     """
 
     command = write_radiance_command_for_vf_computation(path_emitter_rad_file, path_receiver_rad_file,
-                                                        path_output_file, path_octree_context, nb_rays)
+                                                        path_output_file, path_octree_context, num_rays)
 
     subprocess.run(command, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -117,7 +117,7 @@ def compute_vf_between_emitter_and_receivers_radiance_no_output(path_emitter_rad
                                                       path_receiver_rad_file: str,
                                                       path_output_file: str,
                                                       path_octree_context: str = None,
-                                                      nb_rays: int = 10000):
+                                                      num_rays: int = 10000):
     """
     todo: test
     Compute the view factor between 2 rectangles with Radiance.
@@ -125,11 +125,11 @@ def compute_vf_between_emitter_and_receivers_radiance_no_output(path_emitter_rad
     :param path_receiver_rad_file: str, the path of the receiver Radiance file.
     :param path_output_file: str, the path of the output file.
     :param path_octree_context: str, the path of the octree file.
-    :param nb_rays: int, the number of rays to use.
+    :param num_rays: int, the number of rays to use.
     """
 
     command = write_radiance_command_for_vf_computation_without_output(path_emitter_rad_file, path_receiver_rad_file,
-                                                        path_octree_context, nb_rays)
+                                                        path_octree_context, num_rays)
 
     results = subprocess.run(command, capture_output=True, text=True)
     output = results.stdout

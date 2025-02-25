@@ -7,6 +7,8 @@ This way, a new process with only the RadiativeSurfaceManager in memory is creat
 import json
 import logging
 
+from time import time
+
 from radiance_comp_vf import RadiativeSurfaceManager
 
 
@@ -28,22 +30,29 @@ def main(config_file):
     logging.info(f"Reading configuration file: {config_file}")
     with open(config_file, 'r') as f:
         config_dict = json.load(f)
+
     # Load the existing RadiativeSurfaceManager object from pkl file
     logging.info(
         f"Loading RadiativeSurfaceManager object from pkl file: {config_dict['path_radiative_surface_manager_pkl']}")
     radiative_surface_manager_obj = RadiativeSurfaceManager.from_pkl(
         path_pkl_file=config_dict['path_radiative_surface_manager_pkl'])
+
     # Perform the visibility check among surfaces
+
+    duration = time()
     logging.info("Performing visibility check among surfaces...")
-    radiative_surface_manager_obj.perform_visibility_check(
+    radiative_surface_manager_obj.check_surface_visibility(
         num_workers=config_dict["num_worker_cpu_bound"],
         mvfc_check=config_dict["mvfc_check"],
         mvfc=config_dict["mvfc"],
+        num_rays=config_dict["num_rays"],
         ray_traced_check=config_dict["ray_traced_check"],
         ray_tracing_among_all_corners=config_dict["ray_tracing_among_all_corners"])
+    logging.info(f"Visibility check among surfaces completed in {time() - duration:.2f} seconds.")
+
     # Generate the input files for the Radiance simulation and prepare the command line to run all these files
     logging.info("Generating input files for the Radiance simulation and preparing the command line...")
-    radiative_surface_manager_obj.generate_input_files_for_radiance_simulation(
+    radiative_surface_manager_obj.generate_radiance_inputs_for_all_surfaces_in_parallel(
         path_root_simulation_folder=config_dict["path_simulation_folder"],
         num_receiver_per_file=config_dict["num_receiver_per_file"],
         num_workers=config_dict["num_worker_io_bound"],
@@ -51,17 +60,24 @@ def main(config_file):
         consider_octree=config_dict["consider_octree"],
         one_octree_for_all=config_dict["one_octree_for_all"],
     )
-    # Run the Radiance simulation and extract the outputs from command line
-    logging.info("Running the Radiance simulation and extracting the outputs from command line...")
-    radiative_surface_manager_obj.run_radiance_simulation()
-    # Post process the outputs to readjust the view factors if specified and necessary
-    logging.info("Post processing the outputs to readjust the view factors if specified and necessary...")
-    radiative_surface_manager_obj.post_process_outputs()
-    # Generate view factor matrix and save it to a file
-    logging.info("Generating view factor matrix and saving it to a file...")
-    radiative_surface_manager_obj.generate_view_factor_matrix()
 
-    print("Parallel computation results:", results)
+    # Run the Radiance simulation and extract the outputs from command line
+    duration = time()
+    logging.info("Running the Radiance simulation and extracting the outputs from command line...")
+    radiative_surface_manager_obj._run_radiance_vf_computation_in_parallel_without_output_files(
+        num_rays = config_dict["num_rays"],
+        num_workers=config_dict["num_worker_cpu_bound"]
+    )
+    logging.info(f"Radiance simulation completed in {time() - duration:.2f} seconds.")
+    #
+    # # Post process the outputs to readjust the view factors if specified and necessary
+    # logging.info("Post processing the outputs to readjust the view factors if specified and necessary...")
+    # radiative_surface_manager_obj.post_process_outputs()
+    #
+    # # Generate view factor matrix and save it to a file
+    # logging.info("Generating view factor matrix and saving it to a file...")
+    # radiative_surface_manager_obj.generate_view_factor_matrix()
+
 
 
 if __name__ == "__main__":
