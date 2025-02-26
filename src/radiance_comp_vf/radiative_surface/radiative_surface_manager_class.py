@@ -890,7 +890,7 @@ class RadiativeSurfaceManager:
     def save_matrices_to_npz(self):
         """
         """
-        s
+
 
 
     def _generate_view_factor_matrix(self) -> np.ndarray:
