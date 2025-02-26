@@ -37,8 +37,10 @@ def main(config_file):
     radiative_surface_manager_obj = RadiativeSurfaceManager.from_pkl(
         path_pkl_file=config_dict['path_radiative_surface_manager_pkl'])
 
-    # Perform the visibility check among surfaces
+    logging.info(
+        f"Number of surfaces : {radiative_surface_manager_obj.num_surface}")
 
+    # Perform the visibility check among surfaces
     duration = time()
     logging.info("Performing visibility check among surfaces...")
     radiative_surface_manager_obj.check_surface_visibility(
@@ -65,7 +67,7 @@ def main(config_file):
     duration = time()
     logging.info("Running the Radiance simulation and extracting the outputs from command line...")
     radiative_surface_manager_obj._run_radiance_vf_computation_in_parallel_without_output_files(
-        num_rays = config_dict["num_rays"],
+        num_rays=config_dict["num_rays"],
         num_workers=config_dict["num_worker_cpu_bound"]
     )
     logging.info(f"Radiance simulation completed in {time() - duration:.2f} seconds.")
@@ -78,6 +80,9 @@ def main(config_file):
     # logging.info("Generating view factor matrix and saving it to a file...")
     # radiative_surface_manager_obj.generate_view_factor_matrix()
 
+    if config_dict["save_to_pkl"]:
+        logging.info("Saving the updated RadiativeSurfaceManager object to a pkl file...")
+        radiative_surface_manager_obj.to_pkl(path_folder=config_dict["path_result_folder"])
 
 
 if __name__ == "__main__":

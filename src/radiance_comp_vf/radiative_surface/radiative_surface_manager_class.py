@@ -887,6 +887,12 @@ class RadiativeSurfaceManager:
     # Generate VF matrices
     # ----------------------------------------------------------
 
+    def save_matrices_to_npz(self):
+        """
+        """
+        s
+
+
     def _generate_view_factor_matrix(self) -> np.ndarray:
         """
         Generate the view factor matrix F*, with F_{ij} = d_{ij} - F_{ij}, with d the kronecker delta.
@@ -1072,7 +1078,8 @@ class RadiativeSurfaceManager:
                                num_receiver_per_file: int = 40,
                                overwrite_folders: bool = False,
                                consider_octree: bool = True,
-                               one_octree_for_all: bool = False) -> str:
+                               one_octree_for_all: bool = False,
+                               save_to_pkl:bool=False) -> str:
         """
         Make the main configuration file for the view factor computation.
         :param path_simulation_folder: str, the folder path where the Radiance files will be saved.
@@ -1118,7 +1125,8 @@ class RadiativeSurfaceManager:
             "num_receiver_per_file": num_receiver_per_file,
             "overwrite_folders": overwrite_folders,
             "consider_octree": consider_octree,
-            "one_octree_for_all": one_octree_for_all
+            "one_octree_for_all": one_octree_for_all,
+            "save_to_pkl": save_to_pkl
         }
         # Write json file
         path_config_file = os.path.join(path_simulation_folder, "vf_config.json")

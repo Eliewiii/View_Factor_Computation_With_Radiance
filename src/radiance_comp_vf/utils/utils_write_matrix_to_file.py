@@ -5,7 +5,7 @@ Utility function to write a matrix to a file with optimized format for sparse ma
 from scipy import sparse
 
 
-def save_sparse_npz(path_file, **sparse_matrices):
+def save_sparse_to_npz_file(path_file, **sparse_matrices):
     """
     Save multiple sparse matrices to a single .npz file.
     :param path_file: str, path to the output .npz file.
