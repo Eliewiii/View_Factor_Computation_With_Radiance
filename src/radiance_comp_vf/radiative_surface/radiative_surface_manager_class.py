@@ -26,7 +26,8 @@ from ..utils import from_receiver_rad_str_to_rad_files, from_receiver_rad_str_to
     from_emitter_rad_str_to_rad_file, split_into_batches, \
     create_folder, parallel_computation_in_batches_with_return, run_radiant_vf_computation_in_batches, \
     compute_vf_between_emitter_and_receivers_radiance, generate_random_rectangles, object_method_wrapper, \
-    flatten_table_to_lists, merge_sublists_to_dict, sort_table_by_column, check_folder_exist
+    flatten_table_to_lists, merge_sublists_to_dict, sort_table_by_column, check_folder_exist, \
+    save_sparse_to_npz_file
 
 # todo: Fpr testing
 from ..utils.utils_run_radiance import compute_vf_between_emitter_and_receivers_radiance_no_output
@@ -48,6 +49,12 @@ class RadiativeSurfaceManager:
     DEFAULT_MIN_RAY_THRESHOLD = 10
     MAX_RECEIVER_PER_FILE = 140
     MVFC_FACTOR = 2  # Factor for a margin of error of the MVFC to select surface
+
+    # Result Matrices ids
+    VF_MATRIX_ID = "vf_mtx"
+    EMISSIVITY_MATRIX_ID = "emissivity_mtx"
+    TRANSMITTANCE_MATRIX_ID = "transmittance_mtx"
+    REFLECTANCE_MATRIX_ID = "reflectance_mtx"
 
     def __init__(self):
         self._radiative_surface_dict: dict = {}
@@ -427,7 +434,7 @@ class RadiativeSurfaceManager:
         is then set accordingly with ceil to have for sure num_workers processes, to avoid generating more pyvista mesh 
         than needed.
         """
-        chunk_size = max(1, ceil(len(self._radiative_surface_dict) / num_workers/2))
+        chunk_size = max(1, ceil(len(self._radiative_surface_dict) / num_workers / 2))
         visibility_result_dict_list = parallel_computation_in_batches_with_return(
             func=self._check_visibility_of_surface_chunk,
             input_tables=split_into_batches(list(self._radiative_surface_dict.keys()), chunk_size),
@@ -447,12 +454,12 @@ class RadiativeSurfaceManager:
                     viewed_surface_id_list=visibility_result_dict[radiative_surface_id], overwrite=True)
 
     def _check_surface_visibility_sequential(self, mvfc_check: bool = True,
-                                 mvfc: float = None,
-                                 num_rays=None,
-                                 min_ray_threshold: int = 1,
-                                 ray_traced_check: bool = True,
-                                 ray_tracing_among_all_corners: bool = False
-                                 ):
+                                             mvfc: float = None,
+                                             num_rays=None,
+                                             min_ray_threshold: int = 1,
+                                             ray_traced_check: bool = True,
+                                             ray_tracing_among_all_corners: bool = False
+                                             ):
         """
         Check the visibility between all the RadiativeSurface objects in the manager.
         SEQUENTIAL VERSION of the function. for testing purposes.
@@ -490,7 +497,7 @@ class RadiativeSurfaceManager:
             between all the corners of the surfaces, and not only the center of face_1 to the center and corners of face_2.
         :return:
         """
-        time_1= time.time()
+        time_1 = time.time()
         if ray_traced_check:
             pyvista_polydata_mesh = radiative_surface_manager_obj._make_pyvista_polydata_mesh_out_of_all_surfaces()
         else:
@@ -506,7 +513,7 @@ class RadiativeSurfaceManager:
                 context_pyvista_polydata_mesh=pyvista_polydata_mesh, mvfc=mvfc,
                 ray_traced_check=ray_traced_check,
                 ray_tracing_among_all_corners=ray_tracing_among_all_corners)
-        time_2=time_2- time.time()
+        time_2 = time_2 - time.time()
         # print (f"Time 1: {time_1}, Time 2: {time_2}")
         return visibility_result_dict
 
@@ -887,11 +894,29 @@ class RadiativeSurfaceManager:
     # Generate VF matrices
     # ----------------------------------------------------------
 
-    def save_matrices_to_npz(self):
+    def save_vf_eps_rho_and_tau_matrices_to_npz(self, path_dir: str, file_name: str = None) -> str:
         """
+        Save the view factor matrices, emissivity, reflectance and transmittance matrices to a npz file.
+        :param path_dir: str, the directory path where the npz file will be saved.
+        :param file_name: str, the name of the npz file without its extension.
+        :return: str, the path of the npz file.
         """
+        # Check file name
+        if file_name is None:
+            file_name = "vf_matrices"
+        elif not isinstance(file_name, str) or file_name == "":
+            raise ValueError("The file name must be a non-empty string.")
+        elif file_name.endswith(".npz"):
+            file_name = file_name[:-4]
+        # Check directory
+        if not os.path.isdir(path_dir):
+            raise ValueError("The directory path is invalid.")
 
-
+        path_file = os.path.join(path_dir, file_name + ".npz")
+        save_sparse_to_npz_file(path_file, **{self.VF_MATRIX_ID: self._generate_view_factor_matrix(),
+                                              self.EMISSIVITY_MATRIX_ID: self._generate_emissivity_matrix(),
+                                              self.REFLECTANCE_MATRIX_ID: self._generate_reflectance_matrix(),
+                                              self.TRANSMITTANCE_MATRIX_ID: self._generate_transmittance_matrix()})
 
     def _generate_view_factor_matrix(self) -> np.ndarray:
         """
@@ -1079,7 +1104,7 @@ class RadiativeSurfaceManager:
                                overwrite_folders: bool = False,
                                consider_octree: bool = True,
                                one_octree_for_all: bool = False,
-                               save_to_pkl:bool=False) -> str:
+                               save_to_pkl: bool = False) -> str:
         """
         Make the main configuration file for the view factor computation.
         :param path_simulation_folder: str, the folder path where the Radiance files will be saved.

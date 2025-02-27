@@ -76,13 +76,15 @@ def main(config_file):
     # logging.info("Post processing the outputs to readjust the view factors if specified and necessary...")
     # radiative_surface_manager_obj.post_process_outputs()
     #
-    # # Generate view factor matrix and save it to a file
-    # logging.info("Generating view factor matrix and saving it to a file...")
-    # radiative_surface_manager_obj.generate_view_factor_matrix()
 
-    if config_dict["save_to_pkl"]:
-        logging.info("Saving the updated RadiativeSurfaceManager object to a pkl file...")
-        radiative_surface_manager_obj.to_pkl(path_folder=config_dict["path_result_folder"])
+    duration = time()
+    logging.info("Generating view factor matrix and saving it to a file...")
+    radiative_surface_manager_obj.save_vf_eps_rho_and_tau_matrices_to_npz(path_dir=config_dict["path_result_folder"])
+    logging.info(f"View factor matrix generated and saved in {time() - duration:.2f} seconds.")
+
+    # if config_dict["save_to_pkl"]:
+    #     logging.info("Saving the updated RadiativeSurfaceManager object to a pkl file...")
+    #     radiative_surface_manager_obj.to_pkl(path_folder=config_dict["path_result_folder"])
 
 
 if __name__ == "__main__":
