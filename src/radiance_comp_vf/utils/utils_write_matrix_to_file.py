@@ -39,11 +39,11 @@ def read_csr_matrices_from_npz(path_file,*matrices_id):
     npz_data = np.load(path_file,allow_pickle=True)
 
     # Prepare a dictionary to store the loaded matrices
-    matrices_dict = {}
+    matrix_dict = {}
 
     # Loop through the requested matrices
     for matrix_id in matrices_id:
         # Load the matrix in CSR format
-        matrices[matrix_id] = sparse.csr_matrix(npz_data[matrix_id])
+        matrix_dict[matrix_id] = sparse.csr_matrix(npz_data[matrix_id])
 
-    return matrices_dict
+    return matrix_dict
