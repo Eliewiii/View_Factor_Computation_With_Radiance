@@ -1,49 +1,45 @@
 """
 Utility function to write a matrix to a file with optimized format for sparse matrices.
 """
+import os
 
 import numpy as np
 
-from scipy import sparse
+from scipy.sparse import csr_matrix, save_npz, load_npz, issparse
 
 
-def save_sparse_to_npz_file(path_file, **sparse_matrices):
+def save_sparse_to_npz_file(path_dir, **sparse_matrices):
     """
     Save multiple sparse matrices to a single .npz file.
     :param path_file: str, path to the output .npz file.
     """
-    # Prepare a dictionary to store sparse data
-    sparse_data = {}
-
+    # Check if directory exist
+    if not os.path.isdir(path_dir):
+        raise FileNotFoundError(f"The directory {path_dir} to write the matrices does not exist")
     # Loop through kwargs to process each sparse matrix
     for name, matrix in sparse_matrices.items():
-        if sparse.issparse(matrix) :
-            # Store in CSR format for efficient storage
-            sparse_data[name] = matrix
-        else:
+        if not issparse(matrix):
             raise ValueError(f"Matrix '{name}' is not sparse! Please provide a sparse matrix.")
 
-    # Save all matrices to a compressed .npz file
-    np.savez_compressed(path_file, **sparse_data)
+    for name, matrix in sparse_matrices.items():
+        save_npz(os.path.join(path_dir, name), matrix, compressed=True)
 
-    print(f"Saved sparse matrices to '{path_file}' successfully!")
 
-def read_csr_matrices_from_npz(path_file,*matrices_id):
+def read_csr_matrices_from_npz(path_dir, *matrix_file_names):
     """
     Read multiple sparse matrices from a single .npz file.
     :param path_file:
     :param matrices_id:
     :return:
     """
-    # Load the .npz file
-    npz_data = np.load(path_file,allow_pickle=True)
-
-    # Prepare a dictionary to store the loaded matrices
+    # Check if the files exist
+    for name in matrix_file_names:
+        if not os.path.isfile(os.path.join(path_dir, name + ".npz")):
+            raise FileNotFoundError(f"The matrix file {os.path.join(path_dir, name + '.npz')} does not exist")
+    #Load the matrices
     matrix_dict = {}
 
-    # Loop through the requested matrices
-    for matrix_id in matrices_id:
-        # Load the matrix in CSR format
-        matrix_dict[matrix_id] = sparse.csr_matrix(npz_data[matrix_id])
+    for name in matrix_file_names:
+        matrix_dict[name] = load_npz(os.path.join(path_dir, name + ".npz"))
 
     return matrix_dict

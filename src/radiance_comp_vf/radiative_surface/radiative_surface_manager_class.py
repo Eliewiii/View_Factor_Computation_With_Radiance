@@ -912,8 +912,7 @@ class RadiativeSurfaceManager:
         if not os.path.isdir(path_dir):
             raise ValueError("The directory path is invalid.")
 
-        path_file = os.path.join(path_dir, file_name + ".npz")
-        save_sparse_to_npz_file(path_file, **{self.VF_MATRIX_ID: self._generate_view_factor_matrix(),
+        save_sparse_to_npz_file(path_dir, **{self.VF_MATRIX_ID: self._generate_view_factor_matrix(),
                                               self.EMISSIVITY_MATRIX_ID: self._generate_emissivity_matrix(),
                                               self.REFLECTANCE_MATRIX_ID: self._generate_reflectance_matrix(),
                                               self.TRANSMITTANCE_MATRIX_ID: self._generate_transmittance_matrix()})
