@@ -6,6 +6,7 @@ This way, a new process with only the RadiativeSurfaceManager in memory is creat
 """
 import json
 import logging
+import shutil
 
 from time import time
 
@@ -85,6 +86,11 @@ def main(config_file):
     # if config_dict["save_to_pkl"]:
     #     logging.info("Saving the updated RadiativeSurfaceManager object to a pkl file...")
     #     radiative_surface_manager_obj.to_pkl(path_folder=config_dict["path_result_folder"])
+
+    # Move the config file and pkl file to the result folder
+    shutil.copy(config_file, config_dict["path_result_folder"])
+    shutil.copy(config_dict["path_radiative_surface_manager_pkl"], config_dict["path_result_folder"])
+
 
 
 if __name__ == "__main__":
