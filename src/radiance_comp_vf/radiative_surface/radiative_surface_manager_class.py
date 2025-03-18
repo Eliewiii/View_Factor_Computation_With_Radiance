@@ -364,6 +364,8 @@ class RadiativeSurfaceManager:
         # Step 4: Run the parallel computation via subprocess
         run_parallel_task_via_subprocess(path_config_file=path_config_file)
 
+        return self.save_vf_eps_rho_and_tau_matrices_to_npz(path_dir=path_result_folder, return_path_npz_only=True)
+
     def run_view_factor_computation(self, path_root_simulation_folder: str, num_receiver_per_file: int = 1,
                                     num_workers=1, worker_batch_size=1,
                                     executor_type_radiance_call=ProcessPoolExecutor,
@@ -894,28 +896,27 @@ class RadiativeSurfaceManager:
     # Generate VF matrices
     # ----------------------------------------------------------
 
-    def save_vf_eps_rho_and_tau_matrices_to_npz(self, path_dir: str, file_name: str = None) -> str:
+    def save_vf_eps_rho_and_tau_matrices_to_npz(self, path_dir: str, return_path_npz_only =False) -> str:
         """
         Save the view factor matrices, emissivity, reflectance and transmittance matrices to a npz file.
         :param path_dir: str, the directory path where the npz file will be saved.
         :param file_name: str, the name of the npz file without its extension.
         :return: str, the path of the npz file.
         """
-        # Check file name
-        if file_name is None:
-            file_name = "vf_matrices"
-        elif not isinstance(file_name, str) or file_name == "":
-            raise ValueError("The file name must be a non-empty string.")
-        elif file_name.endswith(".npz"):
-            file_name = file_name[:-4]
         # Check directory
         if not os.path.isdir(path_dir):
             raise ValueError("The directory path is invalid.")
 
+        if return_path_npz_only:
+            return [os.path.join(path_dir, name_mtx + ".npz") for name_mtx in
+                    [self.VF_MATRIX_ID, self.EMISSIVITY_MATRIX_ID,
+                     self.REFLECTANCE_MATRIX_ID, self.TRANSMITTANCE_MATRIX_ID]]
+
         save_sparse_to_npz_file(path_dir, **{self.VF_MATRIX_ID: self._generate_view_factor_matrix(),
-                                              self.EMISSIVITY_MATRIX_ID: self._generate_emissivity_matrix(),
-                                              self.REFLECTANCE_MATRIX_ID: self._generate_reflectance_matrix(),
-                                              self.TRANSMITTANCE_MATRIX_ID: self._generate_transmittance_matrix()})
+                                             self.EMISSIVITY_MATRIX_ID: self._generate_emissivity_matrix(),
+                                             self.REFLECTANCE_MATRIX_ID: self._generate_reflectance_matrix(),
+                                             self.TRANSMITTANCE_MATRIX_ID: self._generate_transmittance_matrix()})
+
 
     def _generate_view_factor_matrix(self) -> np.ndarray:
         """
