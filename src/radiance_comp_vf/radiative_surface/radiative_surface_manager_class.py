@@ -405,7 +405,7 @@ class RadiativeSurfaceManager:
                                  mvfc_check: bool = True,
                                  mvfc: float = None,
                                  num_rays=None,
-                                 min_ray_threshold: int = 10,
+                                 min_ray_threshold: int = DEFAULT_MIN_RAY_THRESHOLD,
                                  ray_traced_check: bool = True,
                                  ray_tracing_among_all_corners: bool = False
                                  ):
@@ -459,7 +459,7 @@ class RadiativeSurfaceManager:
     def _check_surface_visibility_sequential(self, mvfc_check: bool = True,
                                              mvfc: float = None,
                                              num_rays=None,
-                                             min_ray_threshold: int = 1,
+                                             min_ray_threshold: int = DEFAULT_MIN_RAY_THRESHOLD,
                                              ray_traced_check: bool = True,
                                              ray_tracing_among_all_corners: bool = False
                                              ):
