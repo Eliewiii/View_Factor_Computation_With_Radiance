@@ -405,7 +405,7 @@ class RadiativeSurfaceManager:
                                  mvfc_check: bool = True,
                                  mvfc: float = None,
                                  num_rays=None,
-                                 min_ray_threshold: int = 1,
+                                 min_ray_threshold: int = 10,
                                  ray_traced_check: bool = True,
                                  ray_tracing_among_all_corners: bool = False
                                  ):
@@ -417,7 +417,8 @@ class RadiativeSurfaceManager:
         :param num_workers: int, the number of workers to use for the parallelization.
         :param mvfc_check: bool, if True, performs the minimum visibility factor criterion check.
         :param mvfc: float, the minimum visibility factor criterion to consider the surface as visible.
-        :param
+        :param num_rays: int, the number of rays to use in Radiance for the ray tracing method.
+        :param min_ray_threshold:
         :param ray_traced_check: bool, if True, use the ray tracing method to check the visibility.
         :param ray_tracing_among_all_corners: bool, if True and ray_traced_check is True, check the visibility
             between all the corners of the surfaces, and not only the center of face_1 to the center and corners of face_2.
