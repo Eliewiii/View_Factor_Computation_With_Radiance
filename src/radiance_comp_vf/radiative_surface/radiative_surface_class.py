@@ -33,6 +33,7 @@ class RadiativeSurface:
     def __init__(self, identifier: str):
         self._identifier: str = self.adjust_identifier_for_radiance(
             identifier)  # Identifier, adjusted by the setter
+        self._index = None  # Index of the surface in the Radiance simulation
         self._origin_identifier: str = identifier  # Original identifier, for instance from Honeybee object
         # Geometry
         self._vertex_list: npt.NDArray[np.float64] = None  # Vertices of the surface, contours the holes
@@ -156,6 +157,10 @@ class RadiativeSurface:
     @property
     def identifier(self):
         return self._identifier
+
+    @property
+    def index(self):
+        return self._index
 
     @staticmethod
     def adjust_identifier_for_radiance(identifier: str) -> str:
@@ -281,14 +286,24 @@ class RadiativeSurface:
     # =========================================================
     # Methods to set the properties of the surface
     # =========================================================
+    def set_index(self, index: int):
+        """
+
+        :param index:
+        :return:
+        """
+        if not isinstance(index, int) or index < 0:
+            raise ValueError(f"The index must be a positive integer, not {index}.")
+        self._index = index
+        self._rad_file_content = from_vertex_list_to_rad_str(vertices=self._vertex_list,
+                                                             identifier=self._index)
+
     def set_geometry(self, vertex_array: List[List[float]]):
         """
         Set the geometry of the surface.
         :param vertex_array: List[List[float]], the list of vertices of the object.
         """
         self._vertex_list = vertex_array
-        self._rad_file_content = from_vertex_list_to_rad_str(vertices=vertex_array,
-                                                             identifier=self._identifier)
         self._area, self._centroid = compute_numpy_array_planar_surface_area_and_centroid(
             surface_boundary=vertex_array)
         self._normal = compute_numpy_array_planar_surface_normal(surface_boundary=vertex_array)
@@ -495,25 +510,25 @@ class RadiativeSurface:
         """
         Generate the name of the emitter Radiance file from the identifier without the extension.
         """
-        return f"emitter_{self._identifier}"
+        return f"emitter_{self._index}"
 
     def name_octree_file(self) -> str:
         """
         Generate the name of the octree file from the identifier without the extension.
         """
-        return f"{self._identifier}"
+        return f"{self._index}"
 
     def name_receiver_file(self) -> str:
         """
         Generate the name of the receiver Radiance file from the identifier without the extension and batch number.
         """
-        return f"receiver_{self._identifier}_batch_"
+        return f"receiver_{self._index}_batch_"
 
     def name_output_file(self) -> str:
         """
         Generate the name of the output Radiance file from the identifier without the extension and batch number.
         """
-        return f"output_{self._identifier}_batch_"
+        return f"output_{self._index}_batch_"
 
     ##############################
     # Read VF Output Files Methods

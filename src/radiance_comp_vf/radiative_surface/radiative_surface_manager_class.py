@@ -279,7 +279,9 @@ class RadiativeSurfaceManager:
                 f"The RadiativeSurface id {radiative_surface.identifier} object already exists in the surface manager.")
         self._radiative_surface_dict[radiative_surface.identifier] = radiative_surface
         self._radiative_surface_id_list.append(radiative_surface.identifier)
+        radiative_surface.set_index(self._num_surface)
         self._num_surface += 1
+
 
     # -----------------------------------------------------------------
     # Access to the surface
@@ -820,8 +822,8 @@ class RadiativeSurfaceManager:
                                                                list_of_column_index_to_sort=[0, 1])
         emitter_vf_dict = merge_sublists_to_dict(sorted_command_returned_vf_list, index_key_column=0,
                                                  index_merge_column=2)
-        for emitter_id, vf_list in emitter_vf_dict.items():
-            self._radiative_surface_dict[emitter_id].add_view_factors(vf_list)
+        for emitter_index, vf_list in emitter_vf_dict.items():
+            self._radiative_surface_dict[self._radiative_surface_id_list[int(emitter_index)]].add_view_factors(vf_list)
 
     ###############################
     # Read the results

@@ -4,6 +4,7 @@
 
 import os
 import subprocess
+import logging
 
 from typing import List
 
@@ -131,10 +132,17 @@ def compute_vf_between_emitter_and_receivers_radiance_no_output(path_emitter_rad
     command = write_radiance_command_for_vf_computation_without_output(path_emitter_rad_file, path_receiver_rad_file,
                                                         path_octree_context, num_rays)
 
-    results = subprocess.run(command, capture_output=True, text=True)
-    output = results.stdout
-    vf_list = read_ruflumtx_commandline_output(output)
+    for i in range (3):
+        results = subprocess.run(command, capture_output=True, text=True)
+        output = results.stdout
+        vf_list = read_ruflumtx_commandline_output(output)
+        if len(vf_list) > 0:
+            break
+        else:
+            logging.warning(f"Attempt {i+1}: No view factors returned from rfluxmtx command: {command}. output returned:{output}")
 
+    if len(vf_list) == 0:
+        raise ValueError(f"No view factors returned from rfluxmtx command: {command}.")
     emitter_surface = path_output_file.split("output_")[1].split("_batch")[0]
     batch_number = int(path_output_file.split("batch_")[1].split(".txt")[0])
 
