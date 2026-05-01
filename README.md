@@ -1,86 +1,51 @@
-# Radiance Comp VF
+# Radiance-VF: High-Performance View Factor Computation
 
-*Radiance Comp VF* is a Python package designed to compute the view factors between surfaces using Radiance.
-This package simplifies complex radiative computations for various engineering and architectural applications.
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![Radiance](https://img.shields.io/badge/Radiance-5.4-lightgrey?style=for-the-badge)
+![Algorithm](https://img.shields.io/badge/Algorithm-Optimization-red?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
 
-The package is still under construction. Most of the key features are already implemented, but some instability ,might 
-remain, as well as suboptimal performance. The package is still in development and will be updated regularly.
+**Radiance-VF** is a specialized Python engine for computing the **View Factor (VF) matrix** of complex 3D scenes. Designed specifically for district-scale building energy models, it handles intricate geometries (including surfaces with holes and fenestrations) and optimizes the computational bottleneck of radiative exchange.
 
-No stable release is available yet, but you can install the package from the last release tag and test it. Any feedback
-is welcome.
+---
+> **💡 Key Innovation**
+>
+> Implements a **Minimum View Factor (Min-VF) Criterion** to intelligently prune negligible geometric interactions, allowing for sparse matrix generation and drastically reduced execution times.
+---
 
-## Features
+## 🚀 Key Features
 
-**Implemented**:
+### 1. Advanced Geometric Processing
+*   **Hole & Fenestration Support:** Correctly handles building surfaces with complex apertures (windows/doors), ensuring area and normal computations are numerically accurate for radiative balance.
+*   **Automated Scene Generation:** Programmatically generates Radiance-compliant input files and octrees from surface datasets.
 
-- Automatic generation of the Radiance input files;
-- Automatic parallel VF computation using Radiance;
+### 2. High-Performance Execution
+*   **Parallel Processing:** Orchestrates the `Radiance` ray-tracing engine across multiple CPU cores to handle massive view-factor matrices (verified for 20000+ surfaces).
 
-**To be implemented**:
+### 3. Algorithmic Pruning (Min-VF Criterion)
+*   **Complexity Reduction:** Uses a threshold-based technique to skip the computation of insignificant view factors.
 
-- Additional surface type support, for now only Polydata (Pyvista) is supported, soon to be added:
-  - Honeybee surfaces;
-- Obstruction consideration (generation of octree files) (considered automatically by Radiance if less than
-  100, see the Radiance Comp VF documentation when it will be available);
-- Automatic selection of the view factors to compute, for now the user has to define them manually
-  (or with its custom algorithm). If less than 1000 surfaces, all surfaces can be considered as seeing each
-  other, the computation time will still remain acceptable (less than 30 minutes on recent hardware ≈ 1
-  million view
-  factor to compute).
+## 🛠️ Prerequisites
 
-## Pre-requisites
+*   **Radiance:** Must be installed on the system.
+*   **Environment Setup:** Add the Radiance `bin` folder to your `PATH` and set the `RAYPATH` to the `lib` folder.
+*   **Note for Windows Users:** High CPU usage by Antivirus software (Windows Defender) is common during Radiance execution. It is recommended to add a process exclusion for the Radiance binaries to prevent performance degradation.
 
-The software need to be installed on your computer. You can install it from the official website:
-https://www.radiance-online.org/download-install
+## 📂 Project Structure
 
-You also need to add the Radiance bin folder (C:\Radiance\bin) to your PATH environment variable, as well as
-creating the RAYPATH variable to the lib folder (C:\Radiance\lib).
+* `src/`: Core Python source code for parallelizing Radiance calls and VF matrix assembly.
+* `tests/`: Unit tests for geometric accuracy, area conservation, and normal vector consistency.
 
-## Installation
+---
 
-You can install the package directly from GitHub using `pip` if you have git installed:
+## 🎓 Context & Credits
 
-```bash
-pip install git+https://github.com/Eliewiii/View_Factor_Computation_With_Radiance.git
-```
+**Author:** Elie Medioni, Ph.D.
 
-Or by pointing to the tar.gz file:
+This project was developed to resolve the "computational bottleneck" of district-scale radiative modeling. It serves as a specialized geometric engine for the **[BUA Framework](https://github.com/Eliewiii/BUA)** and the **[LWR-EPCoupling](https://github.com/Eliewiii/EP_LWR_coupled_simulation)** system.
 
-```bash
-pip install https://github.com/Eliewiii/View_Factor_Computation_With_Radiance/archive/refs/tags/last_release_tag.tar.gz
-```
+---
 
-## Usage
+## 📄 License
 
-Examples of usage are available in the `examples` folder. For more detailed usage, check the documentation.
-
-## License
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Contact
-For any questions, feel free to reach out:
-
-* Author: Elie MEIDONI
-* Email: elie.medioniwiii@gmail.com
-
-## To Do list
-- In the source code:
-  - Add more checks to ensure the user inputs are correct, without adding to much complexity/computation time
-  - Add more error handling
-  - Add some checks to ensure the Radiance software is installed on the user's computer and can be called.
-- In the tests:
-  - Clean the test files to remove deprecated tests
-  - Add new tests to check extreme cases
-- In the documentation:
-  - Add the documentation
-- Performance optimization:
-  - Perform more in-depth performance tests, especially to check if threading or multiprocessing is more efficient, 
-  and in which conditions (especially for HPC).
-  - Sensitivity analysis on the parameters to optimize the results/computation time, especially :
-    - Visibility parameters, and the use of the minimum view factor criterion.
-    - The number of rays to use in Radiance for optimal VF/compuation time, as computation increase exponentially with
-    the number of rays.
-  - Find a proper procedure to make sure windows defender or other antivirus software does not slow down the Radiance 
-  simulation. The task manager shows an insane use (more than 70% of the CPU) of the antivirus software during the
-  simulation using Radiance, which must slows down the simulation. This issue is specific to Windows.
-    
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
